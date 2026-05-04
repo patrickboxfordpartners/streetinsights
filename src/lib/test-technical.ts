@@ -21,7 +21,6 @@ async function testTechnicalIndicators() {
     const symbol = "NVDA";
     console.log(`Fetching historical data for ${symbol}...\n`);
 
-    const quote = await yahooFinance.quote(symbol);
     const history = await yahooFinance.chart(symbol, {
       period1: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // 1 year ago
       interval: "1d",
