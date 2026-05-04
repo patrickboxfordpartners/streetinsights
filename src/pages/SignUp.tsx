@@ -21,10 +21,15 @@ export function SignUp() {
 
   const { startCheckout, loading: checkoutLoading } = useBilling()
 
-  // If user is logged in and has a plan parameter, go to checkout
+  // If user is logged in and has a plan parameter (URL or localStorage), go to checkout
   useEffect(() => {
-    if (session && planFromUrl) {
-      startCheckout(planFromUrl)
+    if (session) {
+      const plan = planFromUrl || localStorage.getItem("pending_plan")
+      if (plan) {
+        // Clear pending plan from storage before checkout
+        localStorage.removeItem("pending_plan")
+        startCheckout(plan)
+      }
     }
   }, [session, planFromUrl, startCheckout])
 
@@ -38,8 +43,9 @@ export function SignUp() {
     )
   }
 
-  if (session && !planFromUrl) {
-    return <Navigate to="/" replace />
+  // If logged in but no plan selected, send to pricing
+  if (session && !planFromUrl && !localStorage.getItem("pending_plan")) {
+    return <Navigate to="/pricing" replace />
   }
 
   async function handleSubmit(e: React.FormEvent) {

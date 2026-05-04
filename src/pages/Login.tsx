@@ -37,7 +37,7 @@ export function Login() {
   if (session) {
     const pendingPlan = localStorage.getItem("pending_plan")
     if (!pendingPlan) {
-      return <Navigate to="/" replace />
+      return <Navigate to="/dashboard" replace />
     }
   }
 
