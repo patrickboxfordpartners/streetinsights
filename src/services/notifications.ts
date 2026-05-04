@@ -1,15 +1,15 @@
 /**
  * Multi-channel notification service
- * Supports: Email (Resend), Telegram, Discord, Slack
+ * Supports: Email (Postmark), Telegram, Discord, Slack
  */
 
-import { Resend } from "resend";
+import { ServerClient } from "postmark";
 import TelegramBot from "node-telegram-bot-api";
 import { Client as DiscordClient, GatewayIntentBits, TextChannel } from "discord.js";
 
 // Configuration
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.FROM_EMAIL || "alerts@getstreetinsights.com";
+const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN;
+const FROM_EMAIL = process.env.FROM_EMAIL || "hello@boxfordpartners.com";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -27,14 +27,14 @@ export interface NotificationPayload {
 }
 
 export class NotificationService {
-  private resend: Resend | null = null;
+  private postmark: ServerClient | null = null;
   private telegram: TelegramBot | null = null;
   private discord: DiscordClient | null = null;
 
   constructor() {
-    // Initialize Resend
-    if (RESEND_API_KEY) {
-      this.resend = new Resend(RESEND_API_KEY);
+    // Initialize Postmark
+    if (POSTMARK_SERVER_TOKEN) {
+      this.postmark = new ServerClient(POSTMARK_SERVER_TOKEN);
     }
 
     // Initialize Telegram (polling disabled for webhook mode)
@@ -75,7 +75,7 @@ export class NotificationService {
    */
   private async sendToAll(payload: NotificationPayload): Promise<void> {
     const channels: NotificationChannel[] = [];
-    if (this.resend) channels.push("email");
+    if (this.postmark) channels.push("email");
     if (this.telegram && TELEGRAM_CHAT_ID) channels.push("telegram");
     if (this.discord && DISCORD_CHANNEL_ID) channels.push("discord");
     if (SLACK_BOT_TOKEN && SLACK_CHANNEL_ID) channels.push("slack");
@@ -109,19 +109,20 @@ export class NotificationService {
    * Send email via Resend
    */
   private async sendEmail(payload: NotificationPayload): Promise<void> {
-    if (!this.resend) {
-      throw new Error("Resend not configured");
+    if (!this.postmark) {
+      throw new Error("Postmark not configured");
     }
 
     if (!payload.to && !process.env.DEFAULT_ALERT_EMAIL) {
       throw new Error("No email recipient specified");
     }
 
-    await this.resend.emails.send({
-      from: FROM_EMAIL,
-      to: payload.to || process.env.DEFAULT_ALERT_EMAIL!,
-      subject: payload.subject || "Street Insights Alert",
-      html: payload.html || `<pre>${payload.message}</pre>`,
+    await this.postmark.sendEmail({
+      From: FROM_EMAIL,
+      To: payload.to || process.env.DEFAULT_ALERT_EMAIL!,
+      Subject: payload.subject || "Street Insights Alert",
+      HtmlBody: payload.html || `<pre>${payload.message}</pre>`,
+      TextBody: payload.message,
     });
 
     console.log(`[NotificationService] ✓ Email sent to ${payload.to || process.env.DEFAULT_ALERT_EMAIL}`);
@@ -207,7 +208,7 @@ export class NotificationService {
    */
   getConfiguredChannels(): NotificationChannel[] {
     const channels: NotificationChannel[] = [];
-    if (this.resend && (process.env.DEFAULT_ALERT_EMAIL || FROM_EMAIL)) channels.push("email");
+    if (this.postmark && (process.env.DEFAULT_ALERT_EMAIL || FROM_EMAIL)) channels.push("email");
     if (this.telegram && TELEGRAM_CHAT_ID) channels.push("telegram");
     if (this.discord && DISCORD_CHANNEL_ID) channels.push("discord");
     if (SLACK_BOT_TOKEN && SLACK_CHANNEL_ID) channels.push("slack");
