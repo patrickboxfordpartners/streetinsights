@@ -1,9 +1,9 @@
-import { Resend } from "resend";
+import { ServerClient } from "postmark";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.FROM_EMAIL || "alerts@marketsignals.com";
+const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN;
+const FROM_EMAIL = process.env.FROM_EMAIL || "hello@boxfordpartners.com";
 
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+const postmark = POSTMARK_SERVER_TOKEN ? new ServerClient(POSTMARK_SERVER_TOKEN) : null;
 
 export interface EmailOptions {
   to: string;
@@ -13,29 +13,24 @@ export interface EmailOptions {
 }
 
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; error?: string }> {
-  if (!resend) {
-    console.warn("Resend not configured. Email would have been sent:", options.subject);
+  if (!postmark) {
+    console.warn("Postmark not configured. Email would have been sent:", options.subject);
     return { success: false, error: "Email service not configured" };
   }
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: options.to,
-      subject: options.subject,
-      text: options.text,
-      html: options.html || `<pre>${options.text}</pre>`,
+    const result = await postmark.sendEmail({
+      From: FROM_EMAIL,
+      To: options.to,
+      Subject: options.subject,
+      TextBody: options.text,
+      HtmlBody: options.html || `<pre>${options.text}</pre>`,
     });
 
-    if (error) {
-      console.error("Resend error:", error);
-      return { success: false, error: error.message || "Failed to send email" };
-    }
-
-    console.log("Email sent successfully:", data?.id);
+    console.log("Email sent successfully:", result.MessageID);
     return { success: true };
   } catch (err: any) {
-    console.error("Email send error:", err);
+    console.error("Postmark error:", err);
     return { success: false, error: err.message || "Unknown error" };
   }
 }
