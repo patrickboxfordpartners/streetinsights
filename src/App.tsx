@@ -19,7 +19,7 @@ import { ContentDrafts } from './pages/ContentDrafts'
 import { PublicLeaderboard } from './pages/PublicLeaderboard'
 import { Backtest } from './pages/Backtest'
 import { Pricing } from './pages/Pricing'
-import DemoMode from './pages/DemoMode'
+// import DemoMode from './pages/DemoMode'
 import { Landing } from './pages/Landing'
 import { Analytics } from '@vercel/analytics/react'
 import * as Sentry from '@sentry/react'
@@ -80,7 +80,7 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/" element={<Landing />} />
-              <Route path="/demo" element={<DemoMode />} />
+              {/* <Route path="/demo" element={<DemoMode />} /> */}
               <Route path="/leaderboard" element={<PublicLeaderboard />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/login" element={<Login />} />
