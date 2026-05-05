@@ -79,6 +79,15 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
+/* Theme transition animation */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease !important;
+  transition-delay: 0ms !important;
+}
+
 /* Monospace for financial data */
 .font-mono,
 [data-mono] {

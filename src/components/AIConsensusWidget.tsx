@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Brain, TrendingUp, TrendingDown, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "../integrations/supabase/client";
+import { Skeleton } from "./SkeletonLoader";
 
 interface AgentChange {
   ticker_symbol: string;
@@ -123,12 +124,29 @@ export function AIConsensusWidget() {
 
   if (loading) {
     return (
-      <div className="bg-card rounded-lg border p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Brain className="h-5 w-5 text-primary animate-pulse" />
-          <h2 className="text-lg font-semibold">AI Agent Highlights</h2>
+      <div className="bg-card rounded-lg border">
+        {/* Header */}
+        <div className="p-4 border-b space-y-2">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+          <Skeleton className="h-3 w-64" />
         </div>
-        <div className="text-sm text-muted-foreground">Loading agent analyses...</div>
+        {/* Items */}
+        <div className="divide-y">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-6 w-20" />
+                <Skeleton className="h-4 w-4 rounded-full" />
+              </div>
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

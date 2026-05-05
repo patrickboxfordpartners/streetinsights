@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-05-02T18:44:46.074Z",
+  "total_sources": 68,
+  "total_scenarios": 3,
+  "total_posts": 524,
+  "total_predictions": 52,
+  "scenarios": [
+    {
+      "stock": "NVDA",
+      "trigger": "H100 supply constraint rumors intensify",
+      "posts": 151,
+      "predictions": 20,
+      "outcome": "+15.2%"
+    },
+    {
+      "stock": "COIN",
+      "trigger": "SEC drops investigation hints",
+      "posts": 210,
+      "predictions": 18,
+      "outcome": "-12.5%"
+    },
+    {
+      "stock": "PLTR",
+      "trigger": "Major defense contract leaked",
+      "posts": 163,
+      "predictions": 14,
+      "outcome": "+22.8%"
+    }
+  ]
+}

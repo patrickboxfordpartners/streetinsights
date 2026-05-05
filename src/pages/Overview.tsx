@@ -8,9 +8,12 @@ import { TopMovers } from '../components/dashboard/TopMovers'
 import { ActivityTimeline } from '../components/dashboard/ActivityTimeline'
 import { SectorHeatMap } from '../components/dashboard/SectorHeatMap'
 import { AIConsensusWidget } from '../components/AIConsensusWidget'
+import { MacroIndicators } from '../components/MacroIndicators'
+import { OnboardingTour } from '../components/OnboardingTour'
 import { useWatchlist } from '../hooks/useWatchlist'
 import { useOnboarding } from '../hooks/useOnboarding'
 import { WelcomeBanner } from '../components/onboarding/WelcomeBanner'
+import { SkeletonDashboard, SkeletonStat } from '../components/SkeletonLoader'
 
 interface Stats {
   totalMentions: number
@@ -30,6 +33,7 @@ interface RecentMention {
 
 export function Overview() {
   const { isFirstVisit, hasSeenWelcome, loading: onboardingLoading } = useOnboarding()
+  const [showTour, setShowTour] = useState(false)
   const [stats, setStats] = useState<Stats>({
     totalMentions: 0,
     totalSources: 0,
@@ -44,6 +48,24 @@ export function Overview() {
     mention_count: number; spike_detected: boolean
   }>>([])
   const { watchlist } = useWatchlist()
+
+  // Show tour for first-time visitors
+  useEffect(() => {
+    const hasSeenTour = localStorage.getItem('hasSeenTour')
+    if (!hasSeenTour && !loading && !onboardingLoading && isFirstVisit && hasSeenWelcome) {
+      setShowTour(true)
+    }
+  }, [loading, onboardingLoading, isFirstVisit, hasSeenWelcome])
+
+  function handleTourComplete() {
+    localStorage.setItem('hasSeenTour', 'true')
+    setShowTour(false)
+  }
+
+  function handleTourSkip() {
+    localStorage.setItem('hasSeenTour', 'true')
+    setShowTour(false)
+  }
 
   useEffect(() => {
     fetchStats()
@@ -164,19 +186,16 @@ export function Overview() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Activity className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <SkeletonDashboard />
   }
 
   return (
-    <div className="space-y-8">
-      {/* Welcome Banner for first-time users */}
-      {!onboardingLoading && isFirstVisit && !hasSeenWelcome && (
-        <WelcomeBanner />
-      )}
+    <>
+      <div className="space-y-8">
+        {/* Welcome Banner for first-time users */}
+        {!onboardingLoading && isFirstVisit && !hasSeenWelcome && (
+          <WelcomeBanner />
+        )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -221,7 +240,12 @@ export function Overview() {
       </div>
 
       {/* AI Consensus Widget */}
-      <AIConsensusWidget />
+      <div data-tour-ai>
+        <AIConsensusWidget />
+      </div>
+
+      {/* Economic Indicators */}
+      <MacroIndicators />
 
       {/* System Widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -335,5 +359,13 @@ function StatCard({
       </div>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
+  )
+}
+
+{/* Onboarding Tour */}
+{showTour && (
+  <OnboardingTour onComplete={handleTourComplete} onSkip={handleTourSkip} />
+)}
+</>
   )
 }

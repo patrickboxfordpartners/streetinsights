@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, TrendingUp, X } from "lucide-react";
 import { supabase } from "../integrations/supabase/client";
+import { SkeletonSearchResult } from "./SkeletonLoader";
 
 interface Ticker {
   id: string;
@@ -148,8 +149,10 @@ export function GlobalSearch() {
           {/* Results */}
           <div className="max-h-[400px] overflow-y-auto">
             {loading && (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                Searching...
+              <div className="py-2 divide-y">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonSearchResult key={i} />
+                ))}
               </div>
             )}
 

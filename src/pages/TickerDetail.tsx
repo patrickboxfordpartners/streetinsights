@@ -21,6 +21,7 @@ import { TechnicalIndicatorsChart, type PriceDataPoint } from '../components/cha
 import { VolumeSpikeAnalysisChart, type VolumeSpikeDataPoint } from '../components/charts/VolumeSpikeAnalysisChart'
 import { EarningsSurpriseChart } from '../components/charts/EarningsSurpriseChart'
 import { AIAgentPanel } from '../components/AIAgentPanel'
+import { SkeletonChart, SkeletonAgentPanel } from '../components/SkeletonLoader'
 
 interface TickerInfo {
   id: string
@@ -162,8 +163,33 @@ export function TickerDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Activity className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="space-y-8">
+        {/* Header skeleton */}
+        <div className="flex items-center gap-4">
+          <div className="p-2 rounded-md bg-accent animate-pulse h-9 w-9" />
+          <div className="space-y-2">
+            <div className="h-8 w-32 bg-accent animate-pulse rounded" />
+            <div className="h-4 w-48 bg-accent animate-pulse rounded" />
+          </div>
+        </div>
+        {/* Stats skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-card rounded-lg border p-4 space-y-2">
+              <div className="h-3 w-20 bg-accent animate-pulse rounded" />
+              <div className="h-8 w-16 bg-accent animate-pulse rounded" />
+            </div>
+          ))}
+        </div>
+        {/* Charts skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2">
+            <SkeletonChart />
+          </div>
+          <SkeletonChart />
+        </div>
+        {/* Agent panel skeleton */}
+        <SkeletonAgentPanel />
       </div>
     )
   }
@@ -499,8 +525,10 @@ export function TickerDetail() {
       )}
 
       {yahooData.loading && (
-        <div className="bg-card rounded-lg border shadow-sm p-8 text-center">
-          <p className="text-sm text-muted-foreground">Loading financial data...</p>
+        <div className="space-y-5">
+          <SkeletonChart />
+          <SkeletonChart />
+          <SkeletonChart />
         </div>
       )}
 

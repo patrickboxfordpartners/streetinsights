@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { ThemeProvider } from './hooks/useTheme'
+import { ToastProvider } from './components/Toast'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import { Overview } from './pages/Overview'
 import { SourceLeaderboard } from './pages/SourceLeaderboard'
@@ -78,7 +79,8 @@ function App() {
       <BrowserRouter>
         <ThemeProvider>
           <AuthProvider>
-            <Routes>
+            <ToastProvider>
+              <Routes>
               <Route path="/" element={<Landing />} />
               {/* <Route path="/demo" element={<DemoMode />} /> */}
               <Route path="/leaderboard" element={<PublicLeaderboard />} />
@@ -107,8 +109,9 @@ function App() {
                 <Route path="drafts" element={<ContentDrafts />} />
                 <Route path="backtest" element={<Backtest />} />
               </Route>
-            </Routes>
-            <Analytics />
+              </Routes>
+              <Analytics />
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>

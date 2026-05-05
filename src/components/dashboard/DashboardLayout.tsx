@@ -20,6 +20,8 @@ import { cn } from '../../lib/utils'
 import { MarketTicker } from './MarketTicker'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { MobileBottomNav } from '../MobileBottomNav'
+import { Breadcrumbs } from '../Breadcrumbs'
+import { CommandPalette } from '../CommandPalette'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../hooks/useTheme'
 import { GlobalSearch } from '../GlobalSearch'
@@ -96,7 +98,9 @@ export function DashboardLayout() {
               }
             >
               <item.icon className="h-4 w-4" />
-              {item.name}
+              <span {...(item.name === 'Alerts' ? { 'data-tour-alerts': true } : {})}>
+                {item.name}
+              </span>
             </NavLink>
           ))}
         </nav>
@@ -134,7 +138,7 @@ export function DashboardLayout() {
       <div className="lg:pl-60">
         {/* Desktop header with search */}
         <div className="sticky top-0 z-30 hidden lg:flex items-center justify-between h-14 px-6 border-b bg-card/95 backdrop-blur">
-          <div className="flex-1 max-w-2xl">
+          <div className="flex-1 max-w-2xl" data-tour-search>
             <GlobalSearch />
           </div>
           <div className="flex items-center gap-3">
@@ -168,6 +172,7 @@ export function DashboardLayout() {
         <MarketTicker />
         <main className="p-4 sm:p-6 pb-20 lg:pb-6">
           <ErrorBoundary>
+            <Breadcrumbs />
             <Outlet />
           </ErrorBoundary>
         </main>
@@ -175,6 +180,9 @@ export function DashboardLayout() {
         {/* Mobile Bottom Navigation */}
         <MobileBottomNav />
       </div>
+
+      {/* Command Palette */}
+      <CommandPalette />
     </div>
   )
 }

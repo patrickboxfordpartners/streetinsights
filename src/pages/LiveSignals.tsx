@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../integrations/supabase/client'
 import { Activity, TrendingUp, TrendingDown, Minus, Radio, Zap } from 'lucide-react'
+import { useOnboarding } from '../hooks/useOnboarding'
+import { EmptyState } from '../components/onboarding/EmptyState'
+import { SampleDataToggle, useSampleData } from '../components/onboarding/SampleDataToggle'
 
 interface Signal {
   ticker_symbol: string
@@ -15,8 +18,11 @@ interface Signal {
 }
 
 export function LiveSignals() {
+  const { hasTrackedTickers, addSampleTickers } = useOnboarding()
+  const { enabled: showSampleData, toggle: toggleSampleData } = useSampleData()
   const [signals, setSignals] = useState<Signal[]>([])
   const [loading, setLoading] = useState(true)
+  const [adding, setAdding] = useState(false)
 
   useEffect(() => {
     fetchSignals()
@@ -125,12 +131,54 @@ export function LiveSignals() {
     setLoading(false)
   }
 
+  async function handleAddSamples() {
+    setAdding(true);
+    try {
+      await addSampleTickers();
+      await fetchSignals();
+    } catch (error) {
+      console.error('Failed to add sample tickers:', error);
+    } finally {
+      setAdding(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Activity className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
+  }
+
+  // Empty state for new users
+  if (signals.length === 0 && !hasTrackedTickers && !showSampleData) {
+    return (
+      <div>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight">Live Signals</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Real-time sentiment analysis from social media and news
+          </p>
+        </div>
+        <div className="border rounded-xl bg-card">
+          <EmptyState
+            icon={Radio}
+            title="No signals yet"
+            description="Add tickers to your watchlist to start tracking live sentiment signals."
+            action={{
+              label: "Add Sample Tickers (NVDA, TSLA, AAPL)",
+              onClick: handleAddSamples,
+              loading: adding,
+            }}
+            secondaryAction={{
+              label: "View Sample Data",
+              onClick: () => toggleSampleData(true),
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -142,9 +190,12 @@ export function LiveSignals() {
             Credibility-weighted sentiment — last 7 days
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20">
-          <Radio className="h-3.5 w-3.5 text-green-500 animate-pulse" />
-          <span className="font-medium text-green-700 dark:text-green-400">Real-time</span>
+        <div className="flex items-center gap-4">
+          {showSampleData && <SampleDataToggle enabled={showSampleData} onChange={toggleSampleData} />}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20">
+            <Radio className="h-3.5 w-3.5 text-green-500 animate-pulse" />
+            <span className="font-medium text-green-700 dark:text-green-400">Real-time</span>
+          </div>
         </div>
       </div>
 

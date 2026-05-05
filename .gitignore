@@ -32,3 +32,4 @@ dist-ssr
 .inngest
 .vercel
 .env.production.vercel
+.gstack/

@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../integrations/supabase/client'
-import { Activity, TrendingUp, AlertTriangle, Plus, X, Edit2, Trash2, Upload, Search, Layers, ArrowUpDown, Star } from 'lucide-react'
+import { Activity, TrendingUp, AlertTriangle, Plus, X, Edit2, Trash2, Upload, Star } from 'lucide-react'
 import { formatNumber, formatDate } from '../lib/utils'
 import { AreaChart, Area, ResponsiveContainer } from 'recharts'
 import { useWatchlist } from '../hooks/useWatchlist'
+import { FilterSort } from '../components/FilterSort'
 
 interface TickerStat {
   id: string
@@ -273,6 +274,16 @@ export function TickerAnalysis() {
     return ['all', ...Array.from(s).sort()]
   }, [tickers])
 
+  const sectorCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: tickers.length }
+    tickers.forEach(t => {
+      if (t.sector) {
+        counts[t.sector] = (counts[t.sector] || 0) + 1
+      }
+    })
+    return counts
+  }, [tickers])
+
   const filteredTickers = useMemo(() => {
     let result = tickers.filter(t => {
       const matchesSearch = !searchQuery ||
@@ -308,7 +319,7 @@ export function TickerAnalysis() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tickers</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Mention frequency and spike detection — {filteredTickers.length} of {tickers.length} tracked
+            Mention frequency and spike detection
           </p>
         </div>
         <div className="flex gap-2">
@@ -329,43 +340,28 @@ export function TickerAnalysis() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search tickers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Layers className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={sectorFilter}
-            onChange={(e) => setSectorFilter(e.target.value)}
-            className="px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {sectors.map(s => (
-              <option key={s} value={s}>{s === 'all' ? 'All Sectors' : s}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'mentions' | 'velocity' | 'symbol')}
-            className="px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="mentions">Sort: Total Mentions</option>
-            <option value="velocity">Sort: Recent Velocity</option>
-            <option value="symbol">Sort: Symbol A–Z</option>
-          </select>
-        </div>
-      </div>
+      {/* Filter & Sort Controls */}
+      <FilterSort
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search by ticker or company name..."
+        filterValue={sectorFilter}
+        onFilterChange={setSectorFilter}
+        filterOptions={sectors.map(s => ({
+          value: s,
+          label: s === 'all' ? 'All Sectors' : s,
+          count: sectorCounts[s] || 0,
+        }))}
+        sortValue={sortBy}
+        onSortChange={(value) => setSortBy(value as 'mentions' | 'velocity' | 'symbol')}
+        sortOptions={[
+          { value: 'mentions', label: 'Most Mentions' },
+          { value: 'velocity', label: 'Trending Up' },
+          { value: 'symbol', label: 'A-Z' },
+        ]}
+        totalResults={tickers.length}
+        filteredResults={filteredTickers.length}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Main list */}

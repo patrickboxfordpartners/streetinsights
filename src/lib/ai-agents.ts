@@ -4,6 +4,8 @@
  */
 
 import { supabase } from "../integrations/supabase/client";
+import { routeLLMRequest } from "./llm-router";
+import { getEconomicContextForAI } from "./economic-data";
 
 export interface AgentPersona {
   id: string;
@@ -129,43 +131,30 @@ export async function generateAgentAnalysis(
     // 2. Build context string
     const contextStr = buildContextString(context);
 
+    // 2b. Add economic context
+    const economicContext = await getEconomicContextForAI().catch(() => "");
+
     // 3. Fill in the prompt template
-    const prompt = persona.prompt_template
+    let prompt = persona.prompt_template
       .replace("{symbol}", context.symbol)
       .replace("{company_name}", context.company_name || context.symbol)
       .replace("{context}", contextStr);
 
-    // 4. Call LLM (using XAI Grok)
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${llmApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "grok-2-latest",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert financial analyst embodying a specific investment philosophy. Provide structured, actionable analysis.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`LLM API error: ${response.status}`);
+    // Append economic context if available
+    if (economicContext) {
+      prompt += `\n\n${economicContext}`;
     }
 
-    const llmResult = await response.json();
-    const analysisText = llmResult.choices[0].message.content;
+    // 4. Call LLM (with automatic fallback)
+    const llmResponse = await routeLLMRequest({
+      systemPrompt: "You are an expert financial analyst embodying a specific investment philosophy. Provide structured, actionable analysis.",
+      userPrompt: prompt,
+      temperature: 0.7,
+      maxTokens: 1000,
+    });
+
+    const analysisText = llmResponse.content;
+    console.log(`[ai-agents] Generated analysis using ${llmResponse.provider} (${llmResponse.model}) in ${llmResponse.latencyMs}ms`);
 
     // 5. Parse the LLM response
     const parsed = parseAgentResponse(analysisText);

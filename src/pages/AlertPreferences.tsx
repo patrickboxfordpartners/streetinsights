@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../components/Toast";
 import { History } from "lucide-react";
 
 interface AlertPreferences {
@@ -24,9 +25,9 @@ interface AlertPreferences {
 
 export default function AlertPreferences() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [preferences, setPreferences] = useState<AlertPreferences>({
     user_id: user?.id || "",
@@ -78,7 +79,7 @@ export default function AlertPreferences() {
       }
     } catch (err: any) {
       console.error("Error fetching preferences:", err);
-      setMessage({ type: "error", text: "Failed to load preferences" });
+      showToast("error", "Failed to load preferences");
     } finally {
       setLoading(false);
     }
@@ -88,7 +89,6 @@ export default function AlertPreferences() {
     if (!user) return;
 
     setSaving(true);
-    setMessage(null);
 
     try {
       const { error } = await supabase
@@ -103,11 +103,10 @@ export default function AlertPreferences() {
 
       if (error) throw error;
 
-      setMessage({ type: "success", text: "Preferences saved successfully" });
-      setTimeout(() => setMessage(null), 3000);
+      showToast("success", "Preferences saved successfully");
     } catch (err: any) {
       console.error("Error saving preferences:", err);
-      setMessage({ type: "error", text: err.message || "Failed to save preferences" });
+      showToast("error", err.message || "Failed to save preferences");
     } finally {
       setSaving(false);
     }
@@ -141,18 +140,6 @@ export default function AlertPreferences() {
             View History
           </Link>
         </div>
-
-        {message && (
-          <div
-            className={`p-4 rounded-lg ${
-              message.type === "success"
-                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                : "bg-red-500/10 border border-red-500/20 text-red-400"
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
 
         <div className="bg-gray-800 rounded-lg border border-gray-700 divide-y divide-gray-700">
           {/* Alert Types */}

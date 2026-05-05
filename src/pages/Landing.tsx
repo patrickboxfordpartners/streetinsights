@@ -217,7 +217,7 @@ export function Landing() {
               🎬 Watch Demo
             </Link>
           </div>
-          <p className="mt-4 text-sm text-gray-500">Free 14-day trial · No credit card required</p>
+          <p className="mt-4 text-sm text-gray-500">No credit card required</p>
         </div>
       </section>
 
@@ -454,7 +454,7 @@ export function Landing() {
             <p className="text-gray-400 mb-6 text-sm">Everything you need to stay ahead of market sentiment</p>
             <ul className="space-y-3 text-left mb-8">
               {[
-                'Free 14-day trial at launch',
+                'Early access pricing available now',
                 'Early access pricing locked for life',
                 'Cancel anytime, no long-term contracts',
                 'All features included',
@@ -530,7 +530,7 @@ export function Landing() {
               to="/sign-up"
               className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-semibold text-lg transition-colors shadow-lg shadow-emerald-600/20"
             >
-              Start Free Trial
+              Get Started
             </Link>
             <Link
               to="/demo"
@@ -539,7 +539,7 @@ export function Landing() {
               🎬 Watch Demo
             </Link>
           </div>
-          <p className="mt-4 text-sm text-gray-500">Free 14-day trial · No credit card required · Cancel anytime</p>
+          <p className="mt-4 text-sm text-gray-500">No credit card required · Cancel anytime</p>
         </div>
       </section>
 
