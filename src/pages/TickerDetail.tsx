@@ -20,6 +20,7 @@ import { FundamentalsDashboard } from '../components/charts/FundamentalsDashboar
 import { TechnicalIndicatorsChart, type PriceDataPoint } from '../components/charts/TechnicalIndicatorsChart'
 import { VolumeSpikeAnalysisChart, type VolumeSpikeDataPoint } from '../components/charts/VolumeSpikeAnalysisChart'
 import { EarningsSurpriseChart } from '../components/charts/EarningsSurpriseChart'
+import { AIAgentPanel } from '../components/AIAgentPanel'
 
 interface TickerInfo {
   id: string
@@ -348,6 +349,11 @@ export function TickerDetail() {
           </div>
         </div>
       </div>
+
+      {/* AI Agent Analysis Panel */}
+      {ticker && (
+        <AIAgentPanel tickerId={ticker.id} symbol={ticker.symbol} />
+      )}
 
       {/* Yahoo Finance Charts */}
       {!yahooData.loading && !yahooData.error && yahooData.historicalPrices.length > 0 && (
