@@ -7,7 +7,10 @@ import { SystemStatus } from '../components/dashboard/SystemStatus'
 import { TopMovers } from '../components/dashboard/TopMovers'
 import { ActivityTimeline } from '../components/dashboard/ActivityTimeline'
 import { SectorHeatMap } from '../components/dashboard/SectorHeatMap'
+import { AIConsensusWidget } from '../components/AIConsensusWidget'
 import { useWatchlist } from '../hooks/useWatchlist'
+import { useOnboarding } from '../hooks/useOnboarding'
+import { WelcomeBanner } from '../components/onboarding/WelcomeBanner'
 
 interface Stats {
   totalMentions: number
@@ -26,6 +29,7 @@ interface RecentMention {
 }
 
 export function Overview() {
+  const { isFirstVisit, hasSeenWelcome, loading: onboardingLoading } = useOnboarding()
   const [stats, setStats] = useState<Stats>({
     totalMentions: 0,
     totalSources: 0,
@@ -169,6 +173,11 @@ export function Overview() {
 
   return (
     <div className="space-y-8">
+      {/* Welcome Banner for first-time users */}
+      {!onboardingLoading && isFirstVisit && !hasSeenWelcome && (
+        <WelcomeBanner />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -210,6 +219,9 @@ export function Overview() {
           label="outcomes"
         />
       </div>
+
+      {/* AI Consensus Widget */}
+      <AIConsensusWidget />
 
       {/* System Widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

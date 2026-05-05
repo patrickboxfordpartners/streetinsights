@@ -19,20 +19,22 @@ import {
 import { cn } from '../../lib/utils'
 import { MarketTicker } from './MarketTicker'
 import { ErrorBoundary } from '../ErrorBoundary'
+import { MobileBottomNav } from '../MobileBottomNav'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../hooks/useTheme'
+import { GlobalSearch } from '../GlobalSearch'
 import logoIcon from '../../assets/logo-icon.png'
 
 const navigation = [
-  { name: 'Overview', href: '/', icon: LayoutDashboard },
-  { name: 'Live Signals', href: '/signals', icon: Radio },
-  { name: 'ML Signals', href: '/ml-signals', icon: Sparkles },
-  { name: 'Tickers', href: '/tickers', icon: TrendingUp },
-  { name: 'Predictions', href: '/predictions', icon: Target },
-  { name: 'Sources', href: '/sources', icon: Users },
-  { name: 'Backtest', href: '/backtest', icon: FlaskConical },
-  { name: 'Alerts', href: '/alerts', icon: Bell },
-  { name: 'Drafts', href: '/drafts', icon: FileEdit },
+  { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Live Signals', href: '/dashboard/signals', icon: Radio },
+  { name: 'ML Signals', href: '/dashboard/ml-signals', icon: Sparkles },
+  { name: 'Tickers', href: '/dashboard/tickers', icon: TrendingUp },
+  { name: 'Predictions', href: '/dashboard/predictions', icon: Target },
+  { name: 'Sources', href: '/dashboard/sources', icon: Users },
+  { name: 'Backtest', href: '/dashboard/backtest', icon: FlaskConical },
+  { name: 'Alerts', href: '/dashboard/alerts', icon: Bell },
+  { name: 'Drafts', href: '/dashboard/drafts', icon: FileEdit },
 ]
 
 export function DashboardLayout() {
@@ -82,7 +84,7 @@ export function DashboardLayout() {
             <NavLink
               key={item.name}
               to={item.href}
-              end={item.href === '/'}
+              end={item.href === '/dashboard'}
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
                 cn(
@@ -130,6 +132,22 @@ export function DashboardLayout() {
 
       {/* Main content */}
       <div className="lg:pl-60">
+        {/* Desktop header with search */}
+        <div className="sticky top-0 z-30 hidden lg:flex items-center justify-between h-14 px-6 border-b bg-card/95 backdrop-blur">
+          <div className="flex-1 max-w-2xl">
+            <GlobalSearch />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
         {/* Mobile header */}
         <div className="sticky top-0 z-30 flex items-center h-14 px-4 border-b bg-card lg:hidden">
           <button
@@ -138,18 +156,24 @@ export function DashboardLayout() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             <img src={logoIcon} alt="" className="h-8 w-auto" />
             <span className="text-sm font-bold tracking-tight">STREET INSIGHTS</span>
+          </div>
+          <div className="ml-auto">
+            <GlobalSearch />
           </div>
         </div>
 
         <MarketTicker />
-        <main className="p-4 sm:p-6">
+        <main className="p-4 sm:p-6 pb-20 lg:pb-6">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav />
       </div>
     </div>
   )
