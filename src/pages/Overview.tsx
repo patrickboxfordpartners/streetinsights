@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../integrations/supabase/client'
-import { TrendingUp, Users, FileText, CheckCircle, Activity, Radio, Star, AlertTriangle } from 'lucide-react'
+import { TrendingUp, Users, FileText, CheckCircle, Radio, Star, AlertTriangle } from 'lucide-react'
 import { formatNumber, formatDateTime } from '../lib/utils'
 import { SystemStatus } from '../components/dashboard/SystemStatus'
 import { TopMovers } from '../components/dashboard/TopMovers'
@@ -9,11 +9,10 @@ import { ActivityTimeline } from '../components/dashboard/ActivityTimeline'
 import { SectorHeatMap } from '../components/dashboard/SectorHeatMap'
 import { AIConsensusWidget } from '../components/AIConsensusWidget'
 import { MacroIndicators } from '../components/MacroIndicators'
-import { OnboardingTour } from '../components/OnboardingTour'
 import { useWatchlist } from '../hooks/useWatchlist'
 import { useOnboarding } from '../hooks/useOnboarding'
 import { WelcomeBanner } from '../components/onboarding/WelcomeBanner'
-import { SkeletonDashboard, SkeletonStat } from '../components/SkeletonLoader'
+import { SkeletonDashboard } from '../components/SkeletonLoader'
 
 interface Stats {
   totalMentions: number
@@ -33,7 +32,6 @@ interface RecentMention {
 
 export function Overview() {
   const { isFirstVisit, hasSeenWelcome, loading: onboardingLoading } = useOnboarding()
-  const [showTour, setShowTour] = useState(false)
   const [stats, setStats] = useState<Stats>({
     totalMentions: 0,
     totalSources: 0,
@@ -56,16 +54,6 @@ export function Overview() {
       setShowTour(true)
     }
   }, [loading, onboardingLoading, isFirstVisit, hasSeenWelcome])
-
-  function handleTourComplete() {
-    localStorage.setItem('hasSeenTour', 'true')
-    setShowTour(false)
-  }
-
-  function handleTourSkip() {
-    localStorage.setItem('hasSeenTour', 'true')
-    setShowTour(false)
-  }
 
   useEffect(() => {
     fetchStats()
@@ -332,6 +320,7 @@ export function Overview() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 
@@ -359,13 +348,5 @@ function StatCard({
       </div>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
-  )
-}
-
-{/* Onboarding Tour */}
-{showTour && (
-  <OnboardingTour onComplete={handleTourComplete} onSkip={handleTourSkip} />
-)}
-</>
   )
 }
