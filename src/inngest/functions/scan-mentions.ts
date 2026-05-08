@@ -80,7 +80,7 @@ interface StockTwitsMessage {
 // Words like ALL, ON, IT, NOW etc. will only match with $ prefix
 const CASHTAG_REGEX = /\$([A-Z]{1,5})(?![a-z])/g;
 
-// Common English words that are also tickers — require $ prefix for these
+// Common English words that are also tickers, require $ prefix for these
 const AMBIGUOUS_TICKERS = new Set([
   "A", "I", "IT", "ALL", "FOR", "NOW", "ON", "AT", "DO", "GO", "SO",
   "AN", "ARE", "BE", "CAN", "HAS", "HE", "HIM", "HIS", "HOW", "IF",
@@ -113,7 +113,7 @@ export const scanMentions = inngest.createFunction(
 
     const tickerSymbols = activeTickers.map(t => t.symbol);
 
-    // Twitter search requires Pro tier ($5K/mo) — disabled
+    // Twitter search requires Pro tier ($5K/mo), disabled
     const twitterMentions: TwitterMention[] = [];
 
     // Scan StockTwits (free public API, no auth required)
@@ -131,7 +131,7 @@ export const scanMentions = inngest.createFunction(
           );
 
           if (!response.ok) {
-            if (response.status === 429) break; // Rate limited — stop early
+            if (response.status === 429) break; // Rate limited, stop early
             continue;
           }
 
@@ -303,7 +303,7 @@ export const scanMentions = inngest.createFunction(
       return articles;
     });
 
-    // Scan Alpha Vantage NEWS_SENTIMENT (25 req/day free tier — use sparingly)
+    // Scan Alpha Vantage NEWS_SENTIMENT (25 req/day free tier, use sparingly)
     const avArticles = await step.run("scan-alpha-vantage-news", async () => {
       if (!ALPHA_VANTAGE_API_KEY) {
         console.warn("Alpha Vantage API key not configured");

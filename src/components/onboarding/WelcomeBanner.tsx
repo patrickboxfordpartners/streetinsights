@@ -10,7 +10,7 @@ export function WelcomeBanner() {
   async function handleAddSamples() {
     setAdding(true);
     try {
-      const tickers = await addSampleTickers();
+      await addSampleTickers();
       setAdded(true);
       setTimeout(() => {
         markWelcomeSeen();

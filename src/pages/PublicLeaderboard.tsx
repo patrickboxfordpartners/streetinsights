@@ -132,7 +132,7 @@ export function PublicLeaderboard() {
             <div className="text-2xl font-bold font-mono">
               {sources.length > 0
                 ? (sources.reduce((s, x) => s + (x.accuracy_rate || 0), 0) / sources.length * 100).toFixed(1)
-                : '—'}%
+                : ', '}%
             </div>
             <div className="text-xs text-muted-foreground mt-1">Average accuracy</div>
           </div>
@@ -200,7 +200,7 @@ export function PublicLeaderboard() {
                     <td className="px-4 py-3.5 text-right font-mono">
                       {source.accuracy_rate != null
                         ? `${(source.accuracy_rate * 100).toFixed(1)}%`
-                        : '—'
+                        : ', '
                       }
                     </td>
                     <td className="px-4 py-3.5 text-right font-mono text-muted-foreground">
@@ -209,7 +209,7 @@ export function PublicLeaderboard() {
                     <td className="px-4 py-3.5 text-right font-mono text-muted-foreground hidden sm:table-cell">
                       {source.reasoning_quality != null
                         ? `${(source.reasoning_quality * 100).toFixed(0)}%`
-                        : '—'
+                        : ', '
                       }
                     </td>
                     {user && (

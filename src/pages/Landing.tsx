@@ -200,7 +200,7 @@ export function Landing() {
 
           <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto">
             Real-time stock sentiment tracking powered by AI. Get alerts on mention spikes,
-            high-confidence predictions, and credibility-ranked sources — before the market moves.
+            high-confidence predictions, and credibility-ranked sources, before the market moves.
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -233,7 +233,7 @@ export function Landing() {
           <p className="text-center text-gray-400 text-lg mb-12">Most investors see it too late.</p>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: '⚠️', color: 'red', title: 'Noise Everywhere', desc: 'Reddit, X, Discord, news — scattered signals across dozens of sources.' },
+              { icon: '⚠️', color: 'red', title: 'Noise Everywhere', desc: 'Reddit, X, Discord, news, scattered signals across dozens of sources.' },
               { icon: '🔍', color: 'orange', title: 'Who to Trust?', desc: 'Every source claims conviction. No way to verify track records.' },
               { icon: '⏰', color: 'yellow', title: 'Always Behind', desc: 'By the time you notice the spike, the move already happened.' },
             ].map((item) => (
@@ -290,7 +290,7 @@ export function Landing() {
             {[
               { n: '1', color: 'bg-emerald-600', title: 'We Scan', desc: 'Continuous scrapes across Reddit, X, and financial news. Extract tickers, sentiment, and predictions in real time.' },
               { n: '2', color: 'bg-purple-600', title: 'AI Analyzes', desc: 'Grok scores reasoning quality and confidence. Validates predictions against outcomes to build credibility scores.' },
-              { n: '3', color: 'bg-blue-600', title: 'You Get Alerts', desc: 'Instant notifications when spikes happen or high-confidence predictions emerge. No noise — only what matters.' },
+              { n: '3', color: 'bg-blue-600', title: 'You Get Alerts', desc: 'Instant notifications when spikes happen or high-confidence predictions emerge. No noise, only what matters.' },
             ].map((step) => (
               <div key={step.n} className="text-center">
                 <div className={`w-14 h-14 ${step.color} rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-5`}>{step.n}</div>
@@ -493,7 +493,7 @@ export function Landing() {
               },
               {
                 q: "How accurate are the predictions?",
-                a: "Our AI doesn't make predictions — it extracts and evaluates predictions made by others. The 92% accuracy stat refers to our ability to identify whether extracted predictions came true. We track every source's historical accuracy so you can decide who to trust.",
+                a: "Our AI doesn't make predictions, it extracts and evaluates predictions made by others. The 92% accuracy stat refers to our ability to identify whether extracted predictions came true. We track every source's historical accuracy so you can decide who to trust.",
               },
               {
                 q: "Do you provide financial advice?",

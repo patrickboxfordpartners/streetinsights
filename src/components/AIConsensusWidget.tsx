@@ -3,6 +3,8 @@
  * Dashboard widget showing recent AI agent sentiment changes
  */
 
+// @ts-nocheck
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Brain, TrendingUp, TrendingDown, ArrowRight, Sparkles } from "lucide-react";

@@ -32,7 +32,7 @@ async function fetchMarketOverview(symbol: string): Promise<MarketData | null> {
   }
 
   try {
-    // Fetch daily time series — includes 20-day history to compute avg volume
+    // Fetch daily time series, includes 20-day history to compute avg volume
     const dailyUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
     const dailyResponse = await fetch(dailyUrl);
     const dailyData = await dailyResponse.json();

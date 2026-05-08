@@ -69,7 +69,7 @@ export const generateReviewRoundup = inngest.createFunction(
           messages: [
             {
               role: "system",
-              content: `You are writing a weekly product update for ReviewSniper (reviewsniper.app), a review management SaaS built by Boxford Partners. Write for LinkedIn — professional, concise, data-forward. Under 1300 characters. No emojis. 2-3 hashtags max.`,
+              content: `You are writing a weekly product update for ReviewSniper (reviewsniper.app), a review management SaaS built by Boxford Partners. Write for LinkedIn, professional, concise, data-forward. Under 1300 characters. No emojis. 2-3 hashtags max.`,
             },
             {
               role: "user",

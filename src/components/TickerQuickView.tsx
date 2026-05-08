@@ -4,12 +4,11 @@
  */
 
 import { useEffect, useState } from "react";
-import { X, TrendingUp, TrendingDown, Minus, ExternalLink, Star } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../integrations/supabase/client";
 import { AIAgentSummary } from "./AIAgentSummary";
 import { getTickerAgentAnalyses, type AgentAnalysis } from "../lib/ai-agents";
-import { formatNumber } from "../lib/utils";
 
 interface TickerQuickViewProps {
   symbol: string;
@@ -194,7 +193,7 @@ export function TickerQuickView({ symbol, onClose }: TickerQuickViewProps) {
           {/* AI Agent Summary */}
           {agentAnalyses.length > 0 && (
             <div className="p-6">
-              <AIAgentSummary analyses={agentAnalyses} symbol={ticker.symbol} />
+              <AIAgentSummary analyses={agentAnalyses} />
             </div>
           )}
 

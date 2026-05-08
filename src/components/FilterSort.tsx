@@ -46,7 +46,6 @@ export function FilterSort({
   filterValue = "all",
   onFilterChange,
   filterOptions = [],
-  filterLabel = "Filter",
   sortValue = "",
   onSortChange,
   sortOptions = [],

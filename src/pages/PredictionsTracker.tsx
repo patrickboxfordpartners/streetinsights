@@ -293,7 +293,7 @@ export function PredictionsTracker() {
                     </div>
                   </div>
 
-                  {/* Right side — dates + validation */}
+                  {/* Right side, dates + validation */}
                   <div className="flex items-center gap-5 shrink-0">
                     <div className="text-right hidden sm:block">
                       <div className="text-xs font-mono text-muted-foreground">

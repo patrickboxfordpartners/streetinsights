@@ -48,12 +48,7 @@ export function Overview() {
   const { watchlist } = useWatchlist()
 
   // Show tour for first-time visitors
-  useEffect(() => {
-    const hasSeenTour = localStorage.getItem('hasSeenTour')
-    if (!hasSeenTour && !loading && !onboardingLoading && isFirstVisit && hasSeenWelcome) {
-      setShowTour(true)
-    }
-  }, [loading, onboardingLoading, isFirstVisit, hasSeenWelcome])
+  // Removed: tour functionality no longer active
 
   useEffect(() => {
     fetchStats()

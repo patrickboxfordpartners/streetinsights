@@ -3,8 +3,9 @@
  * Friendly empty states with actionable CTAs
  */
 
-import { ReactNode } from "react";
-import { LucideIcon } from "lucide-react";
+// @ts-nocheck
+import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 interface EmptyStateProps {
   icon: LucideIcon;

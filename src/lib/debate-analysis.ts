@@ -1,15 +1,15 @@
 /**
  * Bull/Bear Researcher Debate Pipeline
  *
- * Ported from TradingAgents (TauricResearch/TradingAgents) — replaces single-pass
+ * Ported from TradingAgents (TauricResearch/TradingAgents), replaces single-pass
  * Grok extraction with a structured debate that forces the model to argue both
  * sides before synthesizing a verdict. Produces materially higher-quality
  * predictions with explicit reasoning chains.
  *
  * Architecture:
- *   1. Bull Researcher  — builds the strongest possible buy case
- *   2. Bear Researcher  — builds the strongest possible sell case (sees bull argument)
- *   3. Research Manager — synthesizes debate into a structured verdict
+ *   1. Bull Researcher , builds the strongest possible buy case
+ *   2. Bear Researcher , builds the strongest possible sell case (sees bull argument)
+ *   3. Research Manager, synthesizes debate into a structured verdict
  *
  * The synthesis output maps directly to the predictions table schema.
  */
@@ -146,7 +146,7 @@ Write a concise, specific bear case (3-5 sentences). Directly counter the bull a
 }
 
 // ---------------------------------------------------------------------------
-// Research Manager — synthesizes debate into structured verdict
+// Research Manager, synthesizes debate into structured verdict
 // ---------------------------------------------------------------------------
 
 async function runResearchManager(
@@ -211,7 +211,7 @@ Respond ONLY with valid JSON:
  * Run the full bull/bear debate pipeline on a mention.
  *
  * For simple mentions with low information content (short posts, memes,
- * no price target) this still produces structured output — it just returns
+ * no price target) this still produces structured output, it just returns
  * is_prediction: false with low quality scores, which is the correct output.
  *
  * @param ctx  Mention + ticker context
@@ -231,7 +231,7 @@ export async function runDebateAnalysis(ctx: MentionContext): Promise<DebateVerd
 }
 
 /**
- * Lightweight version for bulk processing — single Grok call, no debate.
+ * Lightweight version for bulk processing, single Grok call, no debate.
  * Use this for low-signal mentions (short posts, reshares) to save tokens.
  * Falls back to original single-pass behavior.
  */

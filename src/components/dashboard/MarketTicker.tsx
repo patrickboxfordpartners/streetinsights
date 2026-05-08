@@ -29,7 +29,7 @@ export function MarketTicker() {
       const data: Quote[] = await res.json()
       if (data.length > 0) setQuotes(data)
     } catch {
-      // Silently fail — keep showing last known quotes
+      // Silently fail, keep showing last known quotes
     }
   }
 

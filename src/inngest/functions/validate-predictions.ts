@@ -60,7 +60,7 @@ export const validatePredictions = inngest.createFunction(
       s => s !== "UNKNOWN"
     );
 
-    // Fetch current prices — process in chunks of 5 to respect Alpha Vantage rate limits
+    // Fetch current prices, process in chunks of 5 to respect Alpha Vantage rate limits
     // Free tier: 5 requests per minute, 25 per day
     const currentPrices: Record<string, StockPrice> = {};
 
@@ -93,7 +93,7 @@ export const validatePredictions = inngest.createFunction(
       Object.assign(currentPrices, chunkPrices);
     }
 
-    // Fetch historical prices — also chunked
+    // Fetch historical prices, also chunked
     // Collect unique (symbol, date) pairs to minimize API calls
     const historicalNeeded = new Map<string, Set<string>>();
     for (const prediction of predictionsToValidate) {

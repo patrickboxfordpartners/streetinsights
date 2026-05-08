@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../integrations/supabase/client'
 import {
-  Activity,
   ArrowLeft,
   TrendingUp,
   TrendingDown,
@@ -378,7 +377,7 @@ export function TickerDetail() {
 
       {/* AI Agent Analysis Panel */}
       {ticker && (
-        <AIAgentPanel tickerId={ticker.id} symbol={ticker.symbol} />
+        <AIAgentPanel tickerId={ticker.id} />
       )}
 
       {/* Yahoo Finance Charts */}

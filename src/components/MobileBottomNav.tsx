@@ -4,7 +4,7 @@
  */
 
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, TrendingUp, Bell, Radio, Star } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Bell, Radio } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const navItems = [

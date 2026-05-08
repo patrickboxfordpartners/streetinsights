@@ -10,6 +10,10 @@ interface DemoScenario {
   trigger_event: string;
   posts: any[];
   predictions: any[];
+  baseline_volume: number;
+  spike_volume: number;
+  days_before_spike: number;
+  days_after_spike: number;
   outcome: {
     price_change_percent: number;
     days_elapsed: number;
@@ -119,7 +123,6 @@ export default function DemoMode() {
   const spikeDay = scenario.days_before_spike;
   const isSpike = currentDay >= spikeDay && currentDay <= spikeDay + 3;
   const isComplete = currentDay >= scenario.outcome.days_elapsed;
-  const progress = (currentDay / maxDay) * 100;
 
   // Track completion
   useEffect(() => {
@@ -238,7 +241,7 @@ export default function DemoMode() {
                       {scenario.outcome.price_change_percent}%
                     </span>
                   ) : (
-                    <span className="text-gray-400">—</span>
+                    <span className="text-gray-400">, </span>
                   )}
                 </p>
               </div>
@@ -531,7 +534,7 @@ export default function DemoMode() {
                 )}
               </div>
               <p className="text-blue-200 text-sm mt-4">
-                Try {(["NVDA", "COIN", "PLTR"] as const).filter(s => s !== selectedStock).map((s, i, arr) =>
+                Try {(["NVDA", "COIN", "PLTR"] as const).filter(s => s !== selectedStock).map((s) =>
                   <button
                     key={s}
                     onClick={() => {

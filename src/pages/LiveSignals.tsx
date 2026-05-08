@@ -187,7 +187,7 @@ export function LiveSignals() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Live Signals</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Credibility-weighted sentiment — last 7 days
+            Credibility-weighted sentiment, last 7 days
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -263,7 +263,7 @@ export function LiveSignals() {
 
                   {/* Right: Signal gauge */}
                   <div className="flex items-center gap-4">
-                    {/* Sentiment bar — centered, bull goes right, bear goes left */}
+                    {/* Sentiment bar, centered, bull goes right, bear goes left */}
                     <div className="w-36 hidden md:block">
                       <div className="h-3 bg-accent rounded-full overflow-hidden relative">
                         <div className="absolute inset-y-0 left-1/2 w-0.5 bg-border z-10" />

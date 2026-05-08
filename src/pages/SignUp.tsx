@@ -132,7 +132,7 @@ export function SignUp() {
         {/* Post-checkout banner */}
         {checkoutSuccess && (
           <div className="mb-4 text-xs text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2 text-center">
-            Payment successful — create your account to get started
+            Payment successful, create your account to get started
           </div>
         )}
 

@@ -8,10 +8,9 @@ import { type AgentAnalysis } from "../lib/ai-agents";
 
 interface AIAgentSummaryProps {
   analyses: AgentAnalysis[];
-  symbol: string;
 }
 
-export function AIAgentSummary({ analyses, symbol }: AIAgentSummaryProps) {
+export function AIAgentSummary({ analyses }: AIAgentSummaryProps) {
   if (analyses.length === 0) {
     return null;
   }

@@ -70,7 +70,7 @@ export const generateMarketPost = inngest.createFunction(
           messages: [
             {
               role: "system",
-              content: `You are a sharp financial commentator writing LinkedIn posts for Boxford Partners, a consulting and technology firm. Write in a confident, data-driven tone. Keep posts under 1300 characters. Include relevant data points. No hashtag spam — 2-3 max. No emojis. Professional but not boring.`,
+              content: `You are a sharp financial commentator writing LinkedIn posts for Boxford Partners, a consulting and technology firm. Write in a confident, data-driven tone. Keep posts under 1300 characters. Include relevant data points. No hashtag spam, 2-3 max. No emojis. Professional but not boring.`,
             },
             {
               role: "user",

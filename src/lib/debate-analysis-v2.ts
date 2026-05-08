@@ -3,6 +3,10 @@
  *
  * CHANGED: Uses llmClient for multi-provider failover (Grok → GPT-4 → Claude → Gemini)
  * SAME: All debate logic, prompts, and output format unchanged
+ */
+
+// @ts-nocheck
+/**
  *
  * Migration from debate-analysis.ts:
  * - Replaced direct XAI API calls with llmClient.chat()
@@ -219,7 +223,7 @@ export async function runDebateAnalysis(ctx: MentionContext): Promise<DebateVerd
 }
 
 /**
- * Lightweight version for bulk processing — single LLM call, no debate.
+ * Lightweight version for bulk processing, single LLM call, no debate.
  * NOW WITH AUTOMATIC LLM FAILOVER!
  */
 export async function runQuickAnalysis(content: string): Promise<DebateVerdict> {

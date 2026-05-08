@@ -135,7 +135,7 @@ export function MacroIndicators() {
                         minimumFractionDigits: indicator.unit === "%" ? 2 : 0,
                         maximumFractionDigits: indicator.unit === "%" ? 2 : 0,
                       })
-                    : "—"}
+                    : ", "}
                 </div>
                 {indicator.unit && (
                   <span className="text-sm text-muted-foreground">{indicator.unit}</span>

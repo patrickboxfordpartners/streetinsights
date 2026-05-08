@@ -4,15 +4,14 @@
  */
 
 import { useEffect, useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Brain, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Brain, AlertCircle, CheckCircle2 } from "lucide-react";
 import { getTickerAgentAnalyses, type AgentAnalysis } from "../lib/ai-agents";
 
 interface AIAgentPanelProps {
   tickerId: string;
-  symbol: string;
 }
 
-export function AIAgentPanel({ tickerId, symbol }: AIAgentPanelProps) {
+export function AIAgentPanel({ tickerId }: AIAgentPanelProps) {
   const [analyses, setAnalyses] = useState<AgentAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
