@@ -457,7 +457,14 @@ export const scanMentionsV2 = inngest.createFunction(
             url: article.url || "",
             platform: "alphavantage",
             mentioned_at: article.time_published
-              ? new Date(article.time_published).toISOString()
+              ? (() => {
+                  const raw = article.time_published;
+                  if (raw.length >= 15 && raw[8] === "T") {
+                    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(9, 11)}:${raw.slice(11, 13)}:${raw.slice(13, 15)}Z`;
+                  }
+                  const d = new Date(raw);
+                  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+                })()
               : new Date().toISOString(),
             engagement_score: Math.round(parseFloat(ts.relevance_score || "0") * 100),
           });
