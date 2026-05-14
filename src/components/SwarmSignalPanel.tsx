@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Activity, TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Zap } from "lucide-react";
 import { supabase } from "../integrations/supabase/client";
 import { inngest } from "../inngest/client";
 

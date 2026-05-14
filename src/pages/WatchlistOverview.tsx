@@ -10,7 +10,7 @@ import { supabase } from '../integrations/supabase/client'
 import { useAuth } from '../hooks/useAuth'
 import { useWatchlist } from '../hooks/useWatchlist'
 import {
-  TrendingUp, TrendingDown, Minus, AlertTriangle,
+  AlertTriangle,
   RefreshCw, Plus, Zap, ChevronRight, Clock,
 } from 'lucide-react'
 
@@ -89,7 +89,7 @@ function ComponentDots({ news, social, flow }: {
 
 // ── Main heat map card ─────────────────────────────────────────────────────
 
-function SignalCard({ ts, onRemove }: { ts: TickerSignal; onRemove: () => void }) {
+function SignalCard({ ts }: { ts: TickerSignal; onRemove?: () => void }) {
   const isToday = ts.run_date === new Date().toISOString().split('T')[0]
   const score = ts.composite_score
 
@@ -222,7 +222,7 @@ function SummaryBar({ signals }: { signals: TickerSignal[] }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export function WatchlistOverview() {
-  const { user } = useAuth()
+  useAuth()
   const { watchlist } = useWatchlist()
   const [signals, setSignals] = useState<TickerSignal[]>([])
   const [loading, setLoading] = useState(true)
@@ -241,7 +241,6 @@ export function WatchlistOverview() {
     if (!tickers?.length) { setLoading(false); return }
 
     // Fetch latest swarm signal per ticker
-    const today = new Date().toISOString().split('T')[0]
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
 
     const { data: swarmData } = await supabase

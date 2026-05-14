@@ -600,6 +600,90 @@ export interface Database {
         }
         Relationships: []
       }
+      swarm_signals: {
+        Row: {
+          id: string
+          ticker_id: string | null
+          symbol: string
+          run_date: string
+          swarm_run_id: string | null
+          model_used: string | null
+          composite_score: number | null
+          composite_label: string | null
+          composite_delta: number | null
+          historical_pct_1yr: number | null
+          reversal_signal: string | null
+          reversal_triggered: boolean
+          news_score: number | null
+          news_delta: number | null
+          social_score: number | null
+          social_delta: number | null
+          flow_score: number | null
+          flow_delta: number | null
+          fear_greed_score: number | null
+          overheat_watch: boolean
+          news_report: string | null
+          social_report: string | null
+          flow_report: string | null
+          synthesis_report: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ticker_id?: string | null
+          symbol: string
+          run_date: string
+          swarm_run_id?: string | null
+          model_used?: string | null
+          composite_score?: number | null
+          composite_label?: string | null
+          composite_delta?: number | null
+          historical_pct_1yr?: number | null
+          reversal_signal?: string | null
+          reversal_triggered?: boolean
+          news_score?: number | null
+          news_delta?: number | null
+          social_score?: number | null
+          social_delta?: number | null
+          flow_score?: number | null
+          flow_delta?: number | null
+          fear_greed_score?: number | null
+          overheat_watch?: boolean
+          news_report?: string | null
+          social_report?: string | null
+          flow_report?: string | null
+          synthesis_report?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ticker_id?: string | null
+          symbol?: string
+          run_date?: string
+          swarm_run_id?: string | null
+          model_used?: string | null
+          composite_score?: number | null
+          composite_label?: string | null
+          composite_delta?: number | null
+          historical_pct_1yr?: number | null
+          reversal_signal?: string | null
+          reversal_triggered?: boolean
+          news_score?: number | null
+          news_delta?: number | null
+          social_score?: number | null
+          social_delta?: number | null
+          flow_score?: number | null
+          flow_delta?: number | null
+          fear_greed_score?: number | null
+          overheat_watch?: boolean
+          news_report?: string | null
+          social_report?: string | null
+          flow_report?: string | null
+          synthesis_report?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
