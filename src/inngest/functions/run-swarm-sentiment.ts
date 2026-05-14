@@ -14,7 +14,8 @@ import * as path from "path";
 import * as fs from "fs";
 
 const VIBE_TRADING_DIR = process.env.VIBE_TRADING_DIR || "/Users/patrickmitchell/Vibe-Trading";
-const VIBE_PYTHON = path.join(VIBE_TRADING_DIR, ".venv/bin/python");
+// On Railway: /usr/bin/python3 (system install). Locally: venv python.
+const VIBE_PYTHON = process.env.VIBE_PYTHON || path.join(VIBE_TRADING_DIR, ".venv/bin/python");
 
 // ── Spawn vibe-trading CLI to run the swarm ───────────────────────────────
 
