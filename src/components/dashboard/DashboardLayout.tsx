@@ -28,7 +28,7 @@ import { GlobalSearch } from '../GlobalSearch'
 import logoIcon from '../../assets/logo-icon.png'
 
 const navigation = [
-  { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Market Pulse', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Live Signals', href: '/dashboard/signals', icon: Radio },
   { name: 'ML Signals', href: '/dashboard/ml-signals', icon: Sparkles },
   { name: 'Tickers', href: '/dashboard/tickers', icon: TrendingUp },

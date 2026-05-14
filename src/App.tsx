@@ -4,6 +4,7 @@ import { ThemeProvider } from './hooks/useTheme'
 import { ToastProvider } from './components/Toast'
 import { DashboardLayout } from './components/dashboard/DashboardLayout'
 import { Overview } from './pages/Overview'
+import { WatchlistOverview } from './pages/WatchlistOverview'
 import { SourceLeaderboard } from './pages/SourceLeaderboard'
 import { TickerAnalysis } from './pages/TickerAnalysis'
 import { TickerDetail } from './pages/TickerDetail'
@@ -97,7 +98,8 @@ function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Overview />} />
+                <Route index element={<WatchlistOverview />} />
+                <Route path="overview-legacy" element={<Overview />} />
                 <Route path="sources" element={<SourceLeaderboard />} />
                 <Route path="tickers" element={<TickerAnalysis />} />
                 <Route path="tickers/:symbol" element={<TickerDetail />} />
