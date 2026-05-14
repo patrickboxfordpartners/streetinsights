@@ -8,6 +8,7 @@
 import { supabase } from "../integrations/supabase/client";
 import { routeLLMRequest } from "./llm-router";
 import { getEconomicContextForAI } from "./economic-data";
+import { fmpClient, type HistoricalPrice } from "./fmp";
 
 export interface AgentPersona {
   id: string;
@@ -130,17 +131,23 @@ export async function generateAgentAnalysis(
       return null;
     }
 
-    // 2. Build context string
-    const contextStr = buildContextString(context);
-
-    // 2b. Add economic context
-    const economicContext = await getEconomicContextForAI().catch(() => "");
+    // 2. Build context string + fetch grounding + economic context in parallel
+    const [contextStr, groundingBlock, economicContext] = await Promise.all([
+      Promise.resolve(buildContextString(context)),
+      buildGroundingBlock(context.symbol),
+      getEconomicContextForAI().catch(() => ""),
+    ]);
 
     // 3. Fill in the prompt template
     let prompt = persona.prompt_template
       .replace("{symbol}", context.symbol)
       .replace("{company_name}", context.company_name || context.symbol)
       .replace("{context}", contextStr);
+
+    // Prepend grounding block (real recent OHLCV) before any analysis
+    if (groundingBlock) {
+      prompt = groundingBlock + "\n\n" + prompt;
+    }
 
     // Append economic context if available
     if (economicContext) {
@@ -149,7 +156,18 @@ export async function generateAgentAnalysis(
 
     // 4. Call LLM (with automatic fallback)
     const llmResponse = await routeLLMRequest({
-      systemPrompt: "You are an expert financial analyst embodying a specific investment philosophy. Provide structured, actionable analysis.",
+      systemPrompt: `You are an expert financial analyst embodying a specific investment philosophy. Provide structured, actionable analysis.
+
+Zero-hallucination policy: every claim in your analysis must trace to data provided in the context (price, market cap, sector, sentiment breakdown, technical signals, recent news). Do not cite statistics, earnings figures, or events not present in the provided context. If a detail is not in the context, write "not in provided data" rather than inferring from training knowledge.
+
+Respond with valid JSON only, no markdown fences, matching this exact schema:
+{
+  "sentiment": "bullish" | "bearish" | "neutral" | "hold",
+  "confidence": <integer 0-100>,
+  "key_factors": ["<factor>", ...],
+  "risks": ["<risk>", ...],
+  "recommendation": "<one sentence>"
+}`,
       userPrompt: prompt,
       temperature: 0.7,
       maxTokens: 1000,
@@ -198,6 +216,63 @@ export async function generateAgentAnalysis(
 }
 
 /**
+ * Fetch 30 days of OHLCV and render a markdown grounding block.
+ * Ported from Vibe-Trading agent/src/swarm/grounding.py.
+ *
+ * Prevents the LLM from citing stale training-data prices by injecting
+ * real recent bars with an explicit instruction to use only these values.
+ * Failures are swallowed — the analysis proceeds without grounding rather
+ * than blocking on a data fetch error.
+ */
+async function buildGroundingBlock(symbol: string): Promise<string> {
+  try {
+    const today = new Date();
+    const from = new Date(today);
+    from.setDate(from.getDate() - 35); // 35 calendar days → ~25 trading days
+    const fromStr = from.toISOString().split("T")[0];
+    const toStr = today.toISOString().split("T")[0];
+
+    const result = await fmpClient.getHistoricalPrices(symbol, fromStr, toStr);
+    const bars: HistoricalPrice[] = result?.historical ?? [];
+    if (!bars.length) return "";
+
+    // FMP returns newest-first; reverse to chronological order
+    const sorted = [...bars].reverse();
+    const closes = sorted.map((b) => b.close);
+    const windowLow = Math.min(...closes);
+    const windowHigh = Math.max(...closes);
+    const lastBar = sorted[sorted.length - 1];
+    const firstBar = sorted[0];
+
+    // Show last 5 bars in the prompt table
+    const tail = sorted.slice(-5);
+    const tableRows = tail
+      .map((b) => `| ${b.date} | ${b.close.toFixed(2)} | ${Number(b.volume).toLocaleString()} |`)
+      .join("\n");
+
+    return [
+      "## Ground Truth — Recent Market Data",
+      "",
+      "**These are the authoritative current prices for this analysis.** Do NOT cite",
+      "prices, valuations, or returns from your training data — markets have moved.",
+      "When you state a price, it must come from this table or the context below.",
+      "",
+      `### ${symbol}  (${firstBar.date} → ${lastBar.date})`,
+      "",
+      "| Date | Close | Volume |",
+      "| --- | ---: | ---: |",
+      tableRows,
+      "",
+      `**Latest close:** $${lastBar.close.toFixed(2)} (${lastBar.date})  ` +
+        `**30-day range:** $${windowLow.toFixed(2)} – $${windowHigh.toFixed(2)}`,
+    ].join("\n");
+  } catch (err) {
+    console.warn("[ai-agents] Grounding fetch failed, continuing without:", err);
+    return "";
+  }
+}
+
+/**
  * Build context string from ticker data
  */
 function buildContextString(context: TickerContext): string {
@@ -237,8 +312,8 @@ function buildContextString(context: TickerContext): string {
 }
 
 /**
- * Parse LLM response into structured data
- * This is a simple parser - production would be more robust
+ * Parse LLM response into structured data.
+ * LLM is instructed to return JSON; we parse it directly with regex fallback.
  */
 function parseAgentResponse(text: string): {
   sentiment: "bullish" | "bearish" | "neutral" | "hold";
@@ -247,57 +322,49 @@ function parseAgentResponse(text: string): {
   risks: string[];
   recommendation: string;
 } {
-  // Default values
-  let sentiment: "bullish" | "bearish" | "neutral" | "hold" = "neutral";
-  let confidence = 50;
-  const keyFactors: string[] = [];
-  const risks: string[] = [];
-  let recommendation = "";
+  const defaults = {
+    sentiment: "neutral" as const,
+    confidence: 50,
+    keyFactors: [] as string[],
+    risks: [] as string[],
+    recommendation: "",
+  };
 
-  // Extract sentiment
-  const sentimentMatch = text.match(
-    /sentiment[:\s]+(\w+)/i
-  );
-  if (sentimentMatch) {
-    const s = sentimentMatch[1].toLowerCase();
-    if (["bullish", "bearish", "neutral", "hold"].includes(s)) {
-      sentiment = s as any;
+  // Strip markdown fences if present
+  const cleaned = text.replace(/```(?:json)?\n?/g, "").trim();
+
+  // Attempt direct JSON parse
+  try {
+    const parsed = JSON.parse(cleaned);
+    const validSentiments = ["bullish", "bearish", "neutral", "hold"];
+    return {
+      sentiment: validSentiments.includes(parsed.sentiment) ? parsed.sentiment : defaults.sentiment,
+      confidence: typeof parsed.confidence === "number" ? Math.min(100, Math.max(0, parsed.confidence)) : defaults.confidence,
+      keyFactors: Array.isArray(parsed.key_factors) ? parsed.key_factors.filter(Boolean) : defaults.keyFactors,
+      risks: Array.isArray(parsed.risks) ? parsed.risks.filter(Boolean) : defaults.risks,
+      recommendation: typeof parsed.recommendation === "string" ? parsed.recommendation.trim() : defaults.recommendation,
+    };
+  } catch {
+    // Fallback: extract JSON object substring and retry
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        const validSentiments = ["bullish", "bearish", "neutral", "hold"];
+        return {
+          sentiment: validSentiments.includes(parsed.sentiment) ? parsed.sentiment : defaults.sentiment,
+          confidence: typeof parsed.confidence === "number" ? Math.min(100, Math.max(0, parsed.confidence)) : defaults.confidence,
+          keyFactors: Array.isArray(parsed.key_factors) ? parsed.key_factors.filter(Boolean) : defaults.keyFactors,
+          risks: Array.isArray(parsed.risks) ? parsed.risks.filter(Boolean) : defaults.risks,
+          recommendation: typeof parsed.recommendation === "string" ? parsed.recommendation.trim() : defaults.recommendation,
+        };
+      } catch {
+        // fall through to defaults
+      }
     }
+    console.error("[ai-agents] Failed to parse LLM response as JSON, using defaults");
+    return defaults;
   }
-
-  // Extract confidence
-  const confidenceMatch = text.match(/confidence[:\s]+(\d+)/i);
-  if (confidenceMatch) {
-    confidence = parseInt(confidenceMatch[1], 10);
-  }
-
-  // Extract key factors (look for bullet points or numbered lists)
-  const factorMatches = text.match(/(?:key factors?|factors?)[:\s]+([\s\S]*?)(?=risks?|recommendation|$)/i);
-  if (factorMatches) {
-    const factorText = factorMatches[1];
-    const bullets = factorText.match(/[-•*]\s*(.+)/g);
-    if (bullets) {
-      keyFactors.push(...bullets.map((b) => b.replace(/^[-•*]\s*/, "").trim()));
-    }
-  }
-
-  // Extract risks
-  const riskMatches = text.match(/risks?[:\s]+([\s\S]*?)(?=recommendation|$)/i);
-  if (riskMatches) {
-    const riskText = riskMatches[1];
-    const bullets = riskText.match(/[-•*]\s*(.+)/g);
-    if (bullets) {
-      risks.push(...bullets.map((b) => b.replace(/^[-•*]\s*/, "").trim()));
-    }
-  }
-
-  // Extract recommendation
-  const recMatch = text.match(/recommendation[:\s]+([\s\S]*?)$/i);
-  if (recMatch) {
-    recommendation = recMatch[1].trim();
-  }
-
-  return { sentiment, confidence, keyFactors, risks, recommendation };
 }
 
 /**

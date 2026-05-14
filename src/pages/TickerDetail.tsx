@@ -20,6 +20,7 @@ import { TechnicalIndicatorsChart, type PriceDataPoint } from '../components/cha
 import { VolumeSpikeAnalysisChart, type VolumeSpikeDataPoint } from '../components/charts/VolumeSpikeAnalysisChart'
 import { EarningsSurpriseChart } from '../components/charts/EarningsSurpriseChart'
 import { AIAgentPanel } from '../components/AIAgentPanel'
+import { SwarmSignalPanel } from '../components/SwarmSignalPanel'
 import { SkeletonChart, SkeletonAgentPanel } from '../components/SkeletonLoader'
 
 interface TickerInfo {
@@ -375,9 +376,12 @@ export function TickerDetail() {
         </div>
       </div>
 
-      {/* AI Agent Analysis Panel */}
+      {/* Sentiment Intelligence (Vibe-Trading swarm) + AI Agent Analysis */}
       {ticker && (
-        <AIAgentPanel tickerId={ticker.id} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <SwarmSignalPanel tickerId={ticker.id} symbol={ticker.symbol} />
+          <AIAgentPanel tickerId={ticker.id} />
+        </div>
       )}
 
       {/* Yahoo Finance Charts */}

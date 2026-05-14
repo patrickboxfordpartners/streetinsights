@@ -19,3 +19,4 @@ export { updateCredibilityScores } from "./update-credibility-scores.js";
 export { enrichMarketData } from "./enrich-market-data.js";
 export { scanOptionsFlow } from "./scan-options-flow.js";
 export { retrainModel } from "./retrain-model.js";
+export { runSwarmSentiment, dailySwarmSentimentRefresh } from "./run-swarm-sentiment.js";
