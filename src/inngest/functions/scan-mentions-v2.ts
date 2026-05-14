@@ -310,8 +310,182 @@ export const scanMentionsV2 = inngest.createFunction(
       return articles;
     });
 
-    // Store mentions (existing logic from original scan-mentions.ts)
-    // ... (copy the full store-mentions logic here - truncated for brevity)
+    // Store mentions in database
+    const stored = await step.run("store-mentions", async () => {
+      const mentionsToStore: Array<{
+        ticker_id: string;
+        source_id: string;
+        content: string;
+        url: string;
+        platform: string;
+        mentioned_at: string;
+        engagement_score: number;
+      }> = [];
+
+      // Batch-resolve sources to avoid N+1
+      const sourceKeys = new Set<string>();
+      for (const msg of stockTwitsMentions) sourceKeys.add(`stocktwits:${msg.user?.username || "unknown"}`);
+      for (const post of redditMentions)    sourceKeys.add(`reddit:${post.author || "unknown"}`);
+      for (const a of newsArticles)         sourceKeys.add(`news:${a.source?.name || "unknown"}`);
+      for (const a of finnhubArticles)      sourceKeys.add(`finnhub:${a.source || "unknown"}`);
+      for (const a of avArticles)           sourceKeys.add(`alphavantage:${a.source || "unknown"}`);
+
+      const platformUsernames = [...sourceKeys].map(k => {
+        const [platform, ...rest] = k.split(":");
+        return { platform, username: rest.join(":") };
+      });
+
+      const sourceMap = new Map<string, string>();
+      if (platformUsernames.length > 0) {
+        const { data: existing } = await supabase
+          .from("sources")
+          .select("id, platform, username")
+          .in("platform", [...new Set(platformUsernames.map(s => s.platform))])
+          .in("username", [...new Set(platformUsernames.map(s => s.username))]);
+        for (const s of existing || []) sourceMap.set(`${s.platform}:${s.username}`, s.id);
+
+        const missing = platformUsernames.filter(s => !sourceMap.has(`${s.platform}:${s.username}`));
+        if (missing.length > 0) {
+          const { data: created } = await supabase
+            .from("sources")
+            .upsert(missing.map(s => ({
+              name: s.username,
+              platform: s.platform,
+              username: s.username,
+              source_type: s.platform === "news" || s.platform === "finnhub" || s.platform === "alphavantage"
+                ? "publication" : "individual",
+              follower_count: 0,
+            })), { onConflict: "platform,username" })
+            .select("id, platform, username");
+          for (const s of created || []) sourceMap.set(`${s.platform}:${s.username}`, s.id);
+        }
+      }
+
+      // StockTwits
+      for (const msg of stockTwitsMentions) {
+        const tickers = extractTickers(msg.body || "", tickerSymbols);
+        for (const symbol of tickers) {
+          const ticker = activeTickers.find(t => t.symbol === symbol);
+          const sourceId = sourceMap.get(`stocktwits:${msg.user?.username || "unknown"}`);
+          if (!ticker || !sourceId) continue;
+          mentionsToStore.push({
+            ticker_id: ticker.id,
+            source_id: sourceId,
+            content: msg.body || "",
+            url: `https://stocktwits.com/${msg.user?.username}/message/${msg.id}`,
+            platform: "stocktwits",
+            mentioned_at: msg.created_at || new Date().toISOString(),
+            engagement_score: (msg.likes?.total || 0) + (msg.reshares_count || 0) * 2,
+          });
+        }
+      }
+
+      // Reddit
+      for (const post of redditMentions) {
+        const text = `${post.title || ""} ${post.selftext || ""}`;
+        const tickers = extractTickers(text, tickerSymbols);
+        for (const symbol of tickers) {
+          const ticker = activeTickers.find(t => t.symbol === symbol);
+          const sourceId = sourceMap.get(`reddit:${post.author || "unknown"}`);
+          if (!ticker || !sourceId) continue;
+          mentionsToStore.push({
+            ticker_id: ticker.id,
+            source_id: sourceId,
+            content: text.slice(0, 2000),
+            url: `https://reddit.com${post.permalink || ""}`,
+            platform: "reddit",
+            mentioned_at: post.created_utc
+              ? new Date(post.created_utc * 1000).toISOString()
+              : new Date().toISOString(),
+            engagement_score: (post.score || 0) + (post.num_comments || 0) * 3,
+          });
+        }
+      }
+
+      // News (aggregated — already symbol-targeted, so all articles are relevant)
+      for (const article of newsArticles) {
+        const sourceName = article.source?.name || "unknown";
+        const sourceId = sourceMap.get(`news:${sourceName}`);
+        const tickers = extractTickers(`${article.title} ${article.description || ""}`, tickerSymbols);
+        for (const symbol of tickers) {
+          const ticker = activeTickers.find(t => t.symbol === symbol);
+          if (!ticker || !sourceId) continue;
+          mentionsToStore.push({
+            ticker_id: ticker.id,
+            source_id: sourceId,
+            content: `${article.title}. ${article.description || ""}`.slice(0, 2000),
+            url: article.url || "",
+            platform: "news",
+            mentioned_at: article.publishedAt || new Date().toISOString(),
+            engagement_score: 10,
+          });
+        }
+      }
+
+      // Finnhub
+      for (const article of finnhubArticles) {
+        const sourceId = sourceMap.get(`finnhub:${article.source || "unknown"}`);
+        const symbol = article.related || "";
+        const ticker = activeTickers.find(t => t.symbol === symbol);
+        if (!ticker || !sourceId) continue;
+        mentionsToStore.push({
+          ticker_id: ticker.id,
+          source_id: sourceId,
+          content: `${article.headline}. ${article.summary || ""}`.slice(0, 2000),
+          url: article.url || "",
+          platform: "finnhub",
+          mentioned_at: article.datetime
+            ? new Date(article.datetime * 1000).toISOString()
+            : new Date().toISOString(),
+          engagement_score: 0,
+        });
+      }
+
+      // Alpha Vantage
+      for (const article of avArticles) {
+        const sourceName = article.source || "alphavantage";
+        const sourceId = sourceMap.get(`alphavantage:${sourceName}`);
+        const tickerSentiments: any[] = article.ticker_sentiment || [];
+        for (const ts of tickerSentiments) {
+          const symbol = ts.ticker;
+          const ticker = activeTickers.find(t => t.symbol === symbol);
+          if (!ticker || !sourceId) continue;
+          mentionsToStore.push({
+            ticker_id: ticker.id,
+            source_id: sourceId,
+            content: `${article.title}. ${article.summary || ""}`.slice(0, 2000),
+            url: article.url || "",
+            platform: "alphavantage",
+            mentioned_at: article.time_published
+              ? new Date(article.time_published).toISOString()
+              : new Date().toISOString(),
+            engagement_score: Math.round(parseFloat(ts.relevance_score || "0") * 100),
+          });
+        }
+      }
+
+      if (mentionsToStore.length > 0) {
+        const { error } = await supabase.from("mentions").insert(mentionsToStore);
+        if (error && error.code !== "23505") {
+          console.error("Error storing mentions:", error);
+          return { stored: 0 };
+        }
+        return { stored: mentionsToStore.length };
+      }
+      return { stored: 0 };
+    });
+
+    // Log scan results for gap detection
+    await step.run("log-scan-results", async () => {
+      const logs = [
+        { scan_type: "stocktwits", status: "success", mentions_found: stockTwitsMentions.length, error_message: null, completed_at: new Date().toISOString() },
+        { scan_type: "reddit", status: !REDDIT_CLIENT_ID ? "skipped" : "success", mentions_found: redditMentions.length, error_message: !REDDIT_CLIENT_ID ? "Reddit credentials not configured" : null, completed_at: new Date().toISOString() },
+        { scan_type: "news-aggregated", status: "success", mentions_found: newsArticles.length, error_message: null, completed_at: new Date().toISOString() },
+        { scan_type: "finnhub", status: !FINNHUB_API_KEY ? "skipped" : "success", mentions_found: finnhubArticles.length, error_message: !FINNHUB_API_KEY ? "Finnhub key not configured" : null, completed_at: new Date().toISOString() },
+        { scan_type: "alphavantage", status: !ALPHA_VANTAGE_API_KEY ? "skipped" : "success", mentions_found: avArticles.length, error_message: !ALPHA_VANTAGE_API_KEY ? "Alpha Vantage key not configured" : null, completed_at: new Date().toISOString() },
+      ];
+      await supabase.from("scan_log").insert(logs);
+    });
 
     return {
       tickers_scanned: tickerSymbols.length,
@@ -321,6 +495,7 @@ export const scanMentionsV2 = inngest.createFunction(
       news_articles: newsArticles.length,
       finnhub_articles: finnhubArticles.length,
       av_articles: avArticles.length,
+      stored: stored.stored,
     };
   }
 );
