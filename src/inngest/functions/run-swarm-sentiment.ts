@@ -230,8 +230,8 @@ export const runSwarmSentiment = inngest.createFunction(
     name: "Run Sentiment Intelligence Swarm",
     retries: 1,
     timeouts: { finish: "15m" },
+    trigger: { event: "ticker/swarm-sentiment.requested" },
   },
-  { event: "ticker/swarm-sentiment.requested" },
   async ({ event, step }) => {
     const { symbol, tickerId } = event.data as { symbol: string; tickerId?: string };
 
@@ -322,8 +322,8 @@ export const dailySwarmSentimentRefresh = inngest.createFunction(
     id: "daily-swarm-sentiment-refresh",
     name: "Daily Swarm Sentiment Refresh",
     retries: 1,
+    trigger: { cron: "0 7 * * 1-5" }, // 7 AM UTC, Mon–Fri
   },
-  { cron: "0 7 * * 1-5" }, // 7 AM UTC, Mon–Fri
   async ({ step }) => {
     // Fetch active tickers with recent mentions
     const tickers = await step.run("fetch-active-tickers", async () => {
