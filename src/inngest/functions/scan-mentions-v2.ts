@@ -337,27 +337,38 @@ export const scanMentionsV2 = inngest.createFunction(
 
       const sourceMap = new Map<string, string>();
       if (platformUsernames.length > 0) {
-        const { data: existing } = await supabase
-          .from("sources")
-          .select("id, platform, username")
-          .in("platform", [...new Set(platformUsernames.map(s => s.platform))])
-          .in("username", [...new Set(platformUsernames.map(s => s.username))]);
-        for (const s of existing || []) sourceMap.set(`${s.platform}:${s.username}`, s.id);
-
-        const missing = platformUsernames.filter(s => !sourceMap.has(`${s.platform}:${s.username}`));
-        if (missing.length > 0) {
-          const { data: created } = await supabase
+        // Upsert all sources first (ignoreDuplicates avoids overwriting existing)
+        const batchSize = 50;
+        for (let i = 0; i < platformUsernames.length; i += batchSize) {
+          const batch = platformUsernames.slice(i, i + batchSize);
+          await supabase
             .from("sources")
-            .upsert(missing.map(s => ({
+            .upsert(batch.map(s => ({
               name: s.username,
               platform: s.platform,
               username: s.username,
               source_type: s.platform === "news" || s.platform === "finnhub" || s.platform === "alphavantage"
                 ? "publication" : "individual",
               follower_count: 0,
-            })), { onConflict: "platform,username" })
-            .select("id, platform, username");
-          for (const s of created || []) sourceMap.set(`${s.platform}:${s.username}`, s.id);
+            })), { onConflict: "platform,username", ignoreDuplicates: true });
+        }
+
+        // Now fetch all source IDs in batches
+        const platforms = [...new Set(platformUsernames.map(s => s.platform))];
+        for (const platform of platforms) {
+          const usernames = platformUsernames
+            .filter(s => s.platform === platform)
+            .map(s => s.username);
+          // Batch usernames to avoid URL length limits
+          for (let i = 0; i < usernames.length; i += 100) {
+            const chunk = usernames.slice(i, i + 100);
+            const { data } = await supabase
+              .from("sources")
+              .select("id, platform, username")
+              .eq("platform", platform)
+              .in("username", chunk);
+            for (const s of data || []) sourceMap.set(`${s.platform}:${s.username}`, s.id);
+          }
         }
       }
 
