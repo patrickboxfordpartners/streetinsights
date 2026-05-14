@@ -9,9 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
-    && python3 -m ensurepip --upgrade \
-    && pip3 install --no-cache-dir --upgrade pip
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
 WORKDIR /app
 
@@ -23,7 +21,7 @@ RUN npm install --omit=dev
 RUN git clone --depth 1 https://github.com/HKUDS/Vibe-Trading.git /vibe-trading
 
 COPY requirements-vibe.txt /vibe-trading/requirements-vibe.txt
-RUN pip3 install --no-cache-dir -r /vibe-trading/requirements-vibe.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /vibe-trading/requirements-vibe.txt
 
 # ── App source ────────────────────────────────────────────────────────────
 COPY tsconfig*.json ./
