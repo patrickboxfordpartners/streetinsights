@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import logoIcon from '../assets/logo-icon.png';
 
 // ── Animated counter ─────────────────────────────────────────────────────────
 function Counter({ end, suffix = '', prefix = '' }: { end: number; suffix?: string; prefix?: string }) {
@@ -156,7 +157,7 @@ function DashboardMockup() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function Landing() {
   return (
-    <div className="min-h-screen bg-gray-950 text-white antialiased" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-gray-950 text-white antialiased" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       <style>{`
         @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
       `}</style>
@@ -164,11 +165,12 @@ export function Landing() {
       {/* Nav */}
       <nav className="fixed top-0 w-full bg-gray-950/90 backdrop-blur-sm border-b border-gray-800 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
-          <div className="flex items-center gap-2">
-            <svg className="w-7 h-7 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
-            <span className="text-lg font-bold tracking-tight">Street Insights</span>
+          <div className="flex items-center gap-2.5">
+            <img src={logoIcon} alt="" className="h-8 w-auto" />
+            <div className="flex flex-col">
+              <span className="text-sm font-bold tracking-tight uppercase">Street Insights</span>
+              <span className="text-[10px] text-gray-400 tracking-wider uppercase">Boxford Partners</span>
+            </div>
           </div>
           <div className="hidden sm:flex items-center gap-6">
             <a href="#features" className="text-sm text-gray-300 hover:text-white transition-colors">Features</a>
