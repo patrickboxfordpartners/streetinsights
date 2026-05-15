@@ -74,6 +74,23 @@ app.get("/api/quotes", async (req, res) => {
   }
 });
 
+// Trigger swarm sentiment run for a ticker
+app.post("/api/swarm/run", async (req, res) => {
+  const { symbol, tickerId } = req.body || {};
+  if (!symbol) {
+    return res.status(400).json({ error: "symbol is required" });
+  }
+  try {
+    await inngest.send({
+      name: "ticker/swarm-sentiment.requested",
+      data: { symbol: symbol.toUpperCase(), tickerId: tickerId || undefined },
+    });
+    res.json({ ok: true, symbol: symbol.toUpperCase() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "market-signals-worker" });

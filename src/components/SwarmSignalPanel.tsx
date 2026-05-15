@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Zap } from "lucide-react";
 import { supabase } from "../integrations/supabase/client";
-import { inngest } from "../inngest/client";
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || "";
 
 interface SwarmSignal {
   id: string;
@@ -140,9 +140,10 @@ export function SwarmSignalPanel({ tickerId, symbol }: SwarmSignalPanelProps) {
   async function requestRefresh() {
     setRunning(true);
     try {
-      await inngest.send({
-        name: "ticker/swarm-sentiment.requested",
-        data: { symbol: symbol.toUpperCase(), tickerId },
+      await fetch(`${WORKER_URL}/api/swarm/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: symbol.toUpperCase(), tickerId }),
       });
       // Poll for up to 8 minutes
       for (let i = 0; i < 48; i++) {
