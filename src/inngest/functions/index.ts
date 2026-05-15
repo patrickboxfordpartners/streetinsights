@@ -20,7 +20,6 @@ export { enrichMarketData } from "./enrich-market-data.js";
 export { scanOptionsFlow } from "./scan-options-flow.js";
 export { retrainModel } from "./retrain-model.js";
 export { runSwarmSentiment, dailySwarmSentimentRefresh } from "./run-swarm-sentiment.js";
-export { scanAdanosSentiment } from "./scan-adanos-sentiment.js";
 
 // Government Calendar Intelligence
 export { scanGovernmentCalendar } from "./scan-government-calendar.js";
