@@ -15,6 +15,7 @@ import {
   Sparkles,
   FileEdit,
   FlaskConical,
+  Landmark,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { MarketTicker } from './MarketTicker'
@@ -34,6 +35,7 @@ const navigation = [
   { name: 'Tickers', href: '/dashboard/tickers', icon: TrendingUp },
   { name: 'Predictions', href: '/dashboard/predictions', icon: Target },
   { name: 'Sources', href: '/dashboard/sources', icon: Users },
+  { name: 'Gov Calendar', href: '/dashboard/government', icon: Landmark },
   { name: 'Backtest', href: '/dashboard/backtest', icon: FlaskConical },
   { name: 'Alerts', href: '/dashboard/alerts', icon: Bell },
   { name: 'Drafts', href: '/dashboard/drafts', icon: FileEdit },

@@ -23,6 +23,7 @@ import { Backtest } from './pages/Backtest'
 import { Pricing } from './pages/Pricing'
 // import DemoMode from './pages/DemoMode'
 import { Landing } from './pages/Landing'
+import { GovernmentCalendar } from './pages/GovernmentCalendar'
 import { Analytics } from '@vercel/analytics/react'
 import * as Sentry from '@sentry/react'
 import logoIcon from './assets/logo-icon.png'
@@ -110,6 +111,7 @@ function App() {
                 <Route path="alerts/history" element={<AlertHistory />} />
                 <Route path="drafts" element={<ContentDrafts />} />
                 <Route path="backtest" element={<Backtest />} />
+                <Route path="government" element={<GovernmentCalendar />} />
               </Route>
               </Routes>
               <Analytics />
