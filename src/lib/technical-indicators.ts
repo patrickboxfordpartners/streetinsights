@@ -318,3 +318,50 @@ export function calculateChartScore(indicators: TechnicalIndicators, trend: Tren
     signals,
   };
 }
+
+/**
+ * Robust Z-score using median + MAD (median absolute deviation).
+ * Resistant to outlier spikes (VIX crashes, earnings gaps) unlike mean/std Z-score.
+ * Ported from FinRL-Trading adaptive_rotation/utils/robust_stats.py.
+ *
+ * Returns null when there is insufficient data or zero dispersion.
+ */
+export function robustZScore(values: number[], current: number): number | null {
+  if (values.length < 2) return null;
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+
+  const deviations = values.map((v) => Math.abs(v - median));
+  const devSorted = [...deviations].sort((a, b) => a - b);
+  const mad = devSorted.length % 2 === 0
+    ? (devSorted[mid - 1] + devSorted[mid]) / 2
+    : devSorted[mid];
+
+  // Scale MAD to be consistent with std dev for normal distributions
+  const scaledMad = mad * 1.4826;
+  if (scaledMad === 0) return null;
+
+  return (current - median) / scaledMad;
+}
+
+/**
+ * Detect a volatility spike using robust Z-score on a rolling window.
+ * Uses VIX or any volatility series. Returns true when the z-score exceeds threshold.
+ *
+ * threshold=2.0 matches the FinRL fast-overlay trigger.
+ */
+export function detectVolatilitySpike(
+  series: number[],
+  windowSize = 20,
+  threshold = 2.0
+): boolean {
+  if (series.length < windowSize + 1) return false;
+  const window = series.slice(-windowSize - 1, -1);
+  const current = series[series.length - 1];
+  const z = robustZScore(window, current);
+  return z !== null && z > threshold;
+}
