@@ -254,7 +254,7 @@ export function Overview() {
             {watchlistTickers.map(t => (
               <Link
                 key={t.id}
-                to={`/tickers/${t.symbol}`}
+                to={`/dashboard/tickers/${t.symbol}`}
                 className="p-4 hover:bg-accent/50 transition-colors"
               >
                 <div className="flex items-center gap-1.5 mb-1">

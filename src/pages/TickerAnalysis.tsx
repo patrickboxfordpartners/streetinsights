@@ -369,7 +369,7 @@ export function TickerAnalysis() {
           {filteredTickers.map((ticker) => (
             <div key={ticker.id} className="relative group">
               <Link
-                to={`/tickers/${ticker.symbol}`}
+                to={`/dashboard/tickers/${ticker.symbol}`}
                 className="block bg-card rounded-lg border shadow-sm p-5 card-glow hover:shadow-md transition-shadow"
               >
                 <div className="flex items-center justify-between gap-6">
