@@ -482,13 +482,25 @@ export const scanMentionsV2 = inngest.createFunction(
         }
       }
 
+      console.log(`[store-mentions] mentionsToStore=${mentionsToStore.length}, sourceMap size=${sourceMap.size}, tickers=${activeTickers.length}`);
+
       if (mentionsToStore.length > 0) {
-        const { error } = await supabase.from("mentions").insert(mentionsToStore);
-        if (error && error.code !== "23505") {
-          console.error("Error storing mentions:", error);
-          return { stored: 0 };
+        let stored = 0;
+        // Insert in batches of 50 to avoid one bad row killing the whole insert
+        for (let i = 0; i < mentionsToStore.length; i += 50) {
+          const batch = mentionsToStore.slice(i, i + 50);
+          const { error, count } = await supabase.from("mentions").insert(batch).select("id", { count: "exact", head: true });
+          if (error) {
+            if (error.code === "23505") {
+              // Duplicates — expected, skip
+            } else {
+              console.error("Error storing mentions batch:", error.code, error.message, "batch_start:", i);
+            }
+          } else {
+            stored += batch.length;
+          }
         }
-        return { stored: mentionsToStore.length };
+        return { stored };
       }
       return { stored: 0 };
     });
