@@ -16,6 +16,7 @@ import {
   FileEdit,
   FlaskConical,
   Landmark,
+  MessageSquare,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { MarketTicker } from './MarketTicker'
@@ -36,6 +37,7 @@ const navigation = [
   { name: 'Predictions', href: '/dashboard/predictions', icon: Target },
   { name: 'Sources', href: '/dashboard/sources', icon: Users },
   { name: 'Gov Calendar', href: '/dashboard/government', icon: Landmark },
+  { name: 'Query Signals', href: '/dashboard/query', icon: MessageSquare },
   { name: 'Backtest', href: '/dashboard/backtest', icon: FlaskConical },
   { name: 'Alerts', href: '/dashboard/alerts', icon: Bell },
   { name: 'Drafts', href: '/dashboard/drafts', icon: FileEdit },
