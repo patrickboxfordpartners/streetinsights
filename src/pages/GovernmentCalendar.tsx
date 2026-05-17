@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useUrlState } from "../hooks/useUrlState";
 import { Landmark, RefreshCw } from "lucide-react";
 import { useGovernmentEvents } from "../hooks/useGovernmentEvents";
 import { EventCard } from "../components/government/EventCard";
@@ -9,9 +9,9 @@ import { CalendarAccuracyCard } from "../components/government/CalendarAccuracyC
 type DateRange = "1d" | "3d" | "7d" | "30d";
 
 export function GovernmentCalendar() {
-  const [range, setRange] = useState<DateRange>("7d");
-  const [category, setCategory] = useState("all");
-  const [minMagnitude, setMinMagnitude] = useState(0);
+  const [range, setRange] = useUrlState<DateRange>("range", "7d");
+  const [category, setCategory] = useUrlState("category", "all");
+  const [minMagnitude, setMinMagnitude] = useUrlState("min", 0);
   const { events, loading, accuracy, refresh } = useGovernmentEvents(range);
 
   const filtered = events.filter((e) => {

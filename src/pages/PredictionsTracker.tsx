@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useUrlState } from '../hooks/useUrlState'
 import { supabase } from '../integrations/supabase/client'
 import { Activity, TrendingUp, TrendingDown, Minus, CheckCircle, XCircle, Clock, Target, Download, Search } from 'lucide-react'
 import { formatDateTime } from '../lib/utils'
@@ -24,9 +25,9 @@ interface Prediction {
 
 export function PredictionsTracker() {
   const [predictions, setPredictions] = useState<Prediction[]>([])
-  const [filter, setFilter] = useState<'all' | 'pending' | 'validated'>('all')
+  const [filter, setFilter] = useUrlState<'all' | 'pending' | 'validated'>('filter', 'all')
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchTerm, setSearchTerm] = useUrlState('q', '')
 
   useEffect(() => {
     fetchPredictions()

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useUrlState } from '../hooks/useUrlState'
 import { supabase } from '../integrations/supabase/client'
 import { Activity, TrendingUp, TrendingDown, Award, Users, Download, Search } from 'lucide-react'
 import { formatPercent } from '../lib/utils'
@@ -21,8 +22,8 @@ interface Source {
 export function SourceLeaderboard() {
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'credibility' | 'accuracy' | 'volume'>('credibility')
-  const [searchTerm, setSearchTerm] = useState('')
+  const [sortBy, setSortBy] = useUrlState<'credibility' | 'accuracy' | 'volume'>('sort', 'credibility')
+  const [searchTerm, setSearchTerm] = useUrlState('q', '')
 
   useEffect(() => {
     fetchSources()

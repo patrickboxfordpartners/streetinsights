@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { useUrlState } from '../hooks/useUrlState'
 import { supabase } from '../integrations/supabase/client'
 import { Activity, TrendingUp, AlertTriangle, Plus, X, Edit2, Trash2, Upload, Star } from 'lucide-react'
 import { formatNumber, formatDate } from '../lib/utils'
@@ -40,9 +41,9 @@ export function TickerAnalysis() {
   const [bulkSymbols, setBulkSymbols] = useState('')
   const [importingBulk, setImportingBulk] = useState(false)
   const { watchlist, toggle: toggleWatchlist } = useWatchlist()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sectorFilter, setSectorFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<'mentions' | 'velocity' | 'symbol'>('mentions')
+  const [searchQuery, setSearchQuery] = useUrlState('q', '')
+  const [sectorFilter, setSectorFilter] = useUrlState('sector', 'all')
+  const [sortBy, setSortBy] = useUrlState<'mentions' | 'velocity' | 'symbol'>('sort', 'mentions')
 
   useEffect(() => {
     fetchTickers()
