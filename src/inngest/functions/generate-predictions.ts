@@ -48,7 +48,7 @@ export const generatePredictions = inngest.createFunction(
 
       for (const ticker of activeTickers) {
         // Extract features for today
-        const features = await extractFeatures(ticker.id, today);
+        const features = await extractFeatures(ticker.id, today, ticker.symbol);
 
         if (!features) {
           console.log(`No features available for ${ticker.symbol}, skipping`);

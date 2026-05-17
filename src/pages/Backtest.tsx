@@ -1,8 +1,31 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../integrations/supabase/client'
-import { Activity, FlaskConical, TrendingUp, TrendingDown, Target, Percent } from 'lucide-react'
+import { Activity, FlaskConical, TrendingUp, TrendingDown, Target, Percent, BarChart2, Loader2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { formatDate } from '../lib/utils'
+
+const WORKER_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_URL) || ''
+
+interface StrategyParams {
+  symbol: string
+  start_date: string
+  end_date: string
+  initial_cash: number
+}
+
+interface StrategyResult {
+  symbol: string
+  total_return: number
+  win_rate: number
+  max_drawdown: number
+  sharpe_ratio: number
+  total_trades: number
+  avg_return_per_trade: number
+  initial_cash: number
+  final_value: number
+  trades: { entry_date: string; exit_date: string; entry_price: number; exit_price: number; change_pct: number; was_correct: boolean }[]
+  equity_curve: { date: string; value: number }[]
+}
 
 interface BacktestParams {
   minCredibility: number
@@ -34,6 +57,9 @@ interface BacktestResult {
 const CONFIDENCE_ORDER = { low: 0, medium: 1, high: 2 }
 
 export function Backtest() {
+  const [activeTab, setActiveTab] = useState<'prediction' | 'strategy'>('prediction')
+
+  // Prediction backtest state
   const [params, setParams] = useState<BacktestParams>({
     minCredibility: 60,
     minConfidence: 'medium',
@@ -42,6 +68,39 @@ export function Backtest() {
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Strategy backtest state
+  const defaultEnd = new Date().toISOString().split('T')[0]
+  const defaultStart = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const [strategyParams, setStrategyParams] = useState<StrategyParams>({
+    symbol: 'NVDA',
+    start_date: defaultStart,
+    end_date: defaultEnd,
+    initial_cash: 10000,
+  })
+  const [strategyResult, setStrategyResult] = useState<StrategyResult | null>(null)
+  const [strategyRunning, setStrategyRunning] = useState(false)
+  const [strategyError, setStrategyError] = useState<string | null>(null)
+
+  const runStrategyBacktest = useCallback(async () => {
+    setStrategyRunning(true)
+    setStrategyError(null)
+    setStrategyResult(null)
+    try {
+      const res = await fetch(`${WORKER_URL}/api/backtest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...strategyParams, strategy: 'ma_crossover' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Backtest failed')
+      setStrategyResult(data)
+    } catch (err: any) {
+      setStrategyError(err.message)
+    } finally {
+      setStrategyRunning(false)
+    }
+  }, [strategyParams])
 
   const runBacktest = useCallback(async () => {
     setRunning(true)
@@ -171,12 +230,132 @@ export function Backtest() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Backtesting Engine</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Simulate a portfolio built on Street Insights validated predictions
+          Simulate strategies against historical data
         </p>
       </div>
 
-      {/* Controls */}
-      <div className="bg-card rounded-lg border shadow-sm p-6">
+      {/* Tab switcher */}
+      <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setActiveTab('prediction')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'prediction' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          Prediction Backtest
+        </button>
+        <button
+          onClick={() => setActiveTab('strategy')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${activeTab === 'strategy' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <BarChart2 className="h-3.5 w-3.5" />
+          Strategy Backtest
+        </button>
+      </div>
+
+      {/* Strategy backtest panel */}
+      {activeTab === 'strategy' && (
+        <div className="space-y-6">
+          <div className="bg-card rounded-lg border shadow-sm p-6">
+            <h2 className="text-base font-bold mb-1">MA Crossover Strategy</h2>
+            <p className="text-xs text-muted-foreground mb-4">Buys when 50-day MA crosses above 200-day MA and RSI &lt; 70. Sells on death cross or RSI &gt; 80.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Symbol</label>
+                <input
+                  type="text"
+                  value={strategyParams.symbol}
+                  onChange={e => setStrategyParams(p => ({ ...p, symbol: e.target.value.toUpperCase() }))}
+                  className="w-full px-3 py-2 text-sm border rounded-md bg-background font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Start Date</label>
+                <input
+                  type="date"
+                  value={strategyParams.start_date}
+                  onChange={e => setStrategyParams(p => ({ ...p, start_date: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">End Date</label>
+                <input
+                  type="date"
+                  value={strategyParams.end_date}
+                  onChange={e => setStrategyParams(p => ({ ...p, end_date: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Initial Cash ($)</label>
+                <input
+                  type="number"
+                  value={strategyParams.initial_cash}
+                  onChange={e => setStrategyParams(p => ({ ...p, initial_cash: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                />
+              </div>
+            </div>
+            <button
+              onClick={runStrategyBacktest}
+              disabled={strategyRunning}
+              className="mt-5 flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {strategyRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart2 className="h-4 w-4" />}
+              {strategyRunning ? 'Running...' : 'Run Strategy Backtest'}
+            </button>
+          </div>
+
+          {strategyError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-sm text-red-500">{strategyError}</div>
+          )}
+
+          {strategyResult && (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: 'Total Return', value: `${strategyResult.total_return >= 0 ? '+' : ''}${strategyResult.total_return.toFixed(2)}%`, positive: strategyResult.total_return >= 0 },
+                  { label: 'Win Rate', value: `${strategyResult.win_rate.toFixed(1)}%`, positive: strategyResult.win_rate >= 50 },
+                  { label: 'Max Drawdown', value: `-${strategyResult.max_drawdown.toFixed(2)}%`, positive: false },
+                  { label: 'Sharpe Ratio', value: strategyResult.sharpe_ratio.toFixed(2), positive: strategyResult.sharpe_ratio >= 1 },
+                ].map(({ label, value, positive }) => (
+                  <div key={label} className="bg-card border rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                    <p className={`text-xl font-bold ${positive ? 'text-green-500' : 'text-red-500'}`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: 'Total Trades', value: strategyResult.total_trades },
+                  { label: 'Avg Return / Trade', value: `${strategyResult.avg_return_per_trade.toFixed(2)}%` },
+                  { label: 'Final Value', value: `$${strategyResult.final_value.toLocaleString()}` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-card border rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                    <p className="text-lg font-bold">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-card border rounded-lg p-4">
+                <h3 className="text-sm font-semibold mb-3">Equity Curve — {strategyResult.symbol}</h3>
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={strategyResult.equity_curve}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(1)}k`} />
+                    <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, 'Portfolio']} />
+                    <ReferenceLine y={strategyResult.initial_cash} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Controls — Prediction Backtest */}
+      {activeTab === 'prediction' && <div className="bg-card rounded-lg border shadow-sm p-6">
         <h2 className="text-base font-bold mb-4">Simulation Parameters</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
@@ -387,6 +566,7 @@ export function Backtest() {
           </div>
         </>
       )}
+      </div>}
     </div>
   )
 }

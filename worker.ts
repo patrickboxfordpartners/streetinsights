@@ -9,6 +9,7 @@ import { inngest } from "./src/inngest/client.js";
 import * as functions from "./src/inngest/functions/index.js";
 import { handleMcp } from "./src/mcp/server.js";
 import { naturalLanguageToSQL, explainSQL, isSafeQuery } from "./src/lib/nl-query.js";
+import { calculateTechnicalIndicators } from "./src/lib/technical-indicators.js";
 import pg from "pg";
 import YahooFinance from "yahoo-finance2";
 
@@ -133,6 +134,156 @@ app.post("/api/query", async (req, res) => {
     const [explanation] = await Promise.all([explainSQL(question, sql)]);
 
     res.json({ sql, results: { rows: result.rows, columns }, explanation });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Technical indicators endpoint — fetches 200d history from Yahoo Finance and computes RSI, MA, MACD
+app.get("/api/technicals/:symbol", async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  try {
+    const end = new Date();
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 1); // 1 year of history for MA200
+
+    const history = await yahooFinance.historical(symbol, {
+      period1: start.toISOString().split("T")[0],
+      period2: end.toISOString().split("T")[0],
+      interval: "1d",
+    });
+
+    if (!history || history.length === 0) {
+      res.status(404).json({ error: `No price history for ${symbol}` });
+      return;
+    }
+
+    const bars = history.map((d) => ({
+      date: d.date.toISOString().split("T")[0],
+      open: d.open ?? 0,
+      high: d.high ?? 0,
+      low: d.low ?? 0,
+      close: d.close ?? 0,
+      volume: d.volume ?? 0,
+    }));
+
+    const indicators = calculateTechnicalIndicators(bars);
+    res.json({ symbol, bars_fetched: bars.length, indicators });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Strategy backtest endpoint — runs a rules-based strategy over Yahoo Finance history
+app.post("/api/backtest", async (req, res) => {
+  const { symbol, start_date, end_date, initial_cash = 10000, strategy = "ma_crossover" } = req.body || {};
+
+  if (!symbol || !start_date || !end_date) {
+    res.status(400).json({ error: "symbol, start_date, and end_date are required" });
+    return;
+  }
+
+  try {
+    const history = await yahooFinance.historical(symbol.toUpperCase(), {
+      period1: start_date,
+      period2: end_date,
+      interval: "1d",
+    });
+
+    if (!history || history.length < 50) {
+      res.status(400).json({ error: "Insufficient price history for backtest (need 50+ days)" });
+      return;
+    }
+
+    const bars = history.map((d: any) => ({
+      date: d.date.toISOString().split("T")[0],
+      close: d.close ?? 0,
+      volume: d.volume ?? 0,
+    }));
+
+    const closes = bars.map((b: any) => b.close);
+
+    // Compute rolling indicators
+    const sma50 = (i: number) => i >= 49 ? closes.slice(i - 49, i + 1).reduce((s: number, v: number) => s + v, 0) / 50 : null;
+    const sma200 = (i: number) => i >= 199 ? closes.slice(i - 199, i + 1).reduce((s: number, v: number) => s + v, 0) / 200 : null;
+
+    // RSI helper
+    const rsi = (i: number) => {
+      if (i < 14) return null;
+      const changes = closes.slice(i - 14, i + 1).map((v: number, j: number, arr: number[]) => j === 0 ? 0 : v - arr[j - 1]).slice(1);
+      const gains = changes.filter((c: number) => c > 0).reduce((s: number, c: number) => s + c, 0) / 14;
+      const losses = changes.filter((c: number) => c < 0).map(Math.abs).reduce((s: number, c: number) => s + c, 0) / 14;
+      return losses === 0 ? 100 : 100 - 100 / (1 + gains / losses);
+    };
+
+    let cash = initial_cash;
+    let shares = 0;
+    let inPosition = false;
+    const trades: any[] = [];
+    const equity: { date: string; value: number }[] = [];
+    let entryPrice = 0;
+    let entryDate = "";
+    let peak = initial_cash;
+    let maxDrawdown = 0;
+
+    for (let i = 0; i < bars.length; i++) {
+      const { date, close } = bars[i];
+      const ma50 = sma50(i);
+      const ma200 = sma200(i);
+      const rsiVal = rsi(i);
+      const portfolioValue = cash + shares * close;
+      equity.push({ date, value: Math.round(portfolioValue * 100) / 100 });
+      if (portfolioValue > peak) peak = portfolioValue;
+      const dd = (peak - portfolioValue) / peak * 100;
+      if (dd > maxDrawdown) maxDrawdown = dd;
+
+      if (strategy === "ma_crossover" && ma50 !== null && ma200 !== null) {
+        if (!inPosition && ma50 > ma200 && (rsiVal === null || rsiVal < 70)) {
+          shares = Math.floor(cash / close);
+          if (shares > 0) { cash -= shares * close; inPosition = true; entryPrice = close; entryDate = date; }
+        } else if (inPosition && (ma50 < ma200 || (rsiVal !== null && rsiVal > 80))) {
+          const proceeds = shares * close;
+          trades.push({ entry_date: entryDate, exit_date: date, entry_price: entryPrice, exit_price: close, change_pct: ((close - entryPrice) / entryPrice) * 100, was_correct: close > entryPrice });
+          cash += proceeds; shares = 0; inPosition = false;
+        }
+      }
+    }
+
+    // Close any open position at end
+    if (inPosition && bars.length > 0) {
+      const last = bars[bars.length - 1];
+      trades.push({ entry_date: entryDate, exit_date: last.date, entry_price: entryPrice, exit_price: last.close, change_pct: ((last.close - entryPrice) / entryPrice) * 100, was_correct: last.close > entryPrice });
+      cash += shares * last.close;
+    }
+
+    const finalValue = cash;
+    const totalReturn = ((finalValue - initial_cash) / initial_cash) * 100;
+    const wins = trades.filter((t) => t.was_correct).length;
+    const winRate = trades.length > 0 ? (wins / trades.length) * 100 : 0;
+    const avgReturn = trades.length > 0 ? trades.reduce((s, t) => s + t.change_pct, 0) / trades.length : 0;
+
+    // Sharpe (simplified — annualized vs 0% risk-free)
+    const dailyReturns = equity.slice(1).map((e, i) => (e.value - equity[i].value) / equity[i].value);
+    const avgDaily = dailyReturns.reduce((s, v) => s + v, 0) / (dailyReturns.length || 1);
+    const stdDaily = Math.sqrt(dailyReturns.reduce((s, v) => s + (v - avgDaily) ** 2, 0) / (dailyReturns.length || 1));
+    const sharpe = stdDaily > 0 ? (avgDaily / stdDaily) * Math.sqrt(252) : 0;
+
+    res.json({
+      symbol: symbol.toUpperCase(),
+      strategy,
+      start_date,
+      end_date,
+      initial_cash,
+      final_value: Math.round(finalValue * 100) / 100,
+      total_return: Math.round(totalReturn * 100) / 100,
+      win_rate: Math.round(winRate * 100) / 100,
+      max_drawdown: Math.round(maxDrawdown * 100) / 100,
+      sharpe_ratio: Math.round(sharpe * 100) / 100,
+      total_trades: trades.length,
+      avg_return_per_trade: Math.round(avgReturn * 100) / 100,
+      trades: trades.slice(-50),
+      equity_curve: equity,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

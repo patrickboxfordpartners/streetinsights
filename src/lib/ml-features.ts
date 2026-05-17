@@ -1,5 +1,7 @@
 import { supabase } from "../integrations/supabase/client.js";
 
+const WORKER_URL = process.env.VITE_WORKER_URL || "http://localhost:3001";
+
 export interface FeatureVector {
   // Mention-based features
   mention_count: number;
@@ -27,6 +29,17 @@ export interface FeatureVector {
   // Temporal features
   day_of_week: number; // 0-6
   is_market_open: boolean;
+
+  // Technical indicator features (from Yahoo Finance via worker)
+  rsi14: number | null;
+  ma50: number | null;
+  ma200: number | null;
+  macd: number | null;
+  macd_signal: number | null;
+  volume_ratio: number | null;   // current volume vs 20-day avg
+  price_above_ma50: boolean | null;
+  price_above_ma200: boolean | null;
+  golden_cross: boolean | null;  // ma50 > ma200
 }
 
 /**
@@ -34,7 +47,8 @@ export interface FeatureVector {
  */
 export async function extractFeatures(
   tickerId: string,
-  date: Date
+  date: Date,
+  symbol?: string
 ): Promise<FeatureVector | null> {
   const dateStr = date.toISOString().split("T")[0];
   const sevenDaysAgo = new Date(date);
@@ -112,14 +126,47 @@ export async function extractFeatures(
     const hour = date.getHours();
     const isMarketOpen = dayOfWeek >= 1 && dayOfWeek <= 5 && hour >= 9 && hour < 16;
 
+    // Technical indicator features — fetched from worker endpoint (best-effort)
+    let rsi14: number | null = null;
+    let ma50: number | null = null;
+    let ma200: number | null = null;
+    let macd: number | null = null;
+    let macd_signal: number | null = null;
+    let volume_ratio: number | null = null;
+    let price_above_ma50: boolean | null = null;
+    let price_above_ma200: boolean | null = null;
+    let golden_cross: boolean | null = null;
+
+    if (symbol) {
+      try {
+        const techRes = await fetch(`${WORKER_URL}/api/technicals/${symbol}`);
+        if (techRes.ok) {
+          const techData = await techRes.json();
+          const ind = techData.indicators;
+          rsi14 = ind.rsi14 ?? null;
+          ma50 = ind.ma50 ?? null;
+          ma200 = ind.ma200 ?? null;
+          macd = ind.macd ?? null;
+          macd_signal = ind.macdSignal ?? null;
+          volume_ratio = ind.volumeRatio ?? null;
+          const price = ind.currentPrice ?? 0;
+          price_above_ma50 = ma50 !== null ? price > ma50 : null;
+          price_above_ma200 = ma200 !== null ? price > ma200 : null;
+          golden_cross = (ma50 !== null && ma200 !== null) ? ma50 > ma200 : null;
+        }
+      } catch {
+        // non-fatal — technical features remain null
+      }
+    }
+
     return {
       mention_count: todayData.mention_count,
       mention_delta_pct: mentionDeltaPct,
-      mention_velocity: mentionDeltaPct / 7, // Change per day
+      mention_velocity: mentionDeltaPct / 7,
       unique_sources: todayData.unique_sources,
 
       sentiment_ratio: sentimentRatio,
-      sentiment_intensity: Math.abs(sentimentRatio - 0.5) * 2, // 0 = neutral, 1 = extreme
+      sentiment_intensity: Math.abs(sentimentRatio - 0.5) * 2,
 
       avg_source_credibility: avgCredibility,
       high_quality_source_count: highQualitySourceCount,
@@ -133,6 +180,16 @@ export async function extractFeatures(
 
       day_of_week: dayOfWeek,
       is_market_open: isMarketOpen,
+
+      rsi14,
+      ma50,
+      ma200,
+      macd,
+      macd_signal,
+      volume_ratio,
+      price_above_ma50,
+      price_above_ma200,
+      golden_cross,
     };
   } catch (error) {
     console.error("Error extracting features:", error);
