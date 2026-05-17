@@ -600,6 +600,188 @@ export interface Database {
         }
         Relationships: []
       }
+      government_events: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          event_type: string
+          source_category: string
+          event_date: string
+          event_end_date: string | null
+          all_day: boolean
+          source_url: string | null
+          source_feed: string
+          external_id: string
+          status: string
+          participants: string[]
+          related_topics: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          event_type: string
+          source_category: string
+          event_date: string
+          event_end_date?: string | null
+          all_day?: boolean
+          source_url?: string | null
+          source_feed: string
+          external_id: string
+          status?: string
+          participants?: string[]
+          related_topics?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          event_type?: string
+          source_category?: string
+          event_date?: string
+          event_end_date?: string | null
+          all_day?: boolean
+          source_url?: string | null
+          source_feed?: string
+          external_id?: string
+          status?: string
+          participants?: string[]
+          related_topics?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      event_impact_scores: {
+        Row: {
+          id: string
+          event_id: string
+          impact_magnitude: number
+          impact_direction: string
+          confidence: number
+          timeframe: string
+          affected_sectors: string[]
+          affected_tickers: string[]
+          reasoning: string
+          key_factors: string[]
+          historical_precedent: string
+          model_provider: string | null
+          model_name: string | null
+          is_latest: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          impact_magnitude: number
+          impact_direction: string
+          confidence?: number
+          timeframe?: string
+          affected_sectors?: string[]
+          affected_tickers?: string[]
+          reasoning?: string
+          key_factors?: string[]
+          historical_precedent?: string
+          model_provider?: string | null
+          model_name?: string | null
+          is_latest?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          impact_magnitude?: number
+          impact_direction?: string
+          confidence?: number
+          timeframe?: string
+          affected_sectors?: string[]
+          affected_tickers?: string[]
+          reasoning?: string
+          key_factors?: string[]
+          historical_precedent?: string
+          model_provider?: string | null
+          model_name?: string | null
+          is_latest?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_impact_scores_event_id_fkey"
+            columns: ["event_id"]
+            referencedRelation: "government_events"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      event_validations: {
+        Row: {
+          id: string
+          event_id: string
+          score_id: string
+          actual_direction: string
+          actual_magnitude: number | null
+          ticker_outcomes: Json
+          sector_outcomes: Json
+          direction_correct: boolean | null
+          magnitude_error: number | null
+          ticker_accuracy_pct: number | null
+          sector_accuracy_pct: number | null
+          overall_score: number | null
+          validation_window_hours: number
+          validated_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          score_id: string
+          actual_direction: string
+          actual_magnitude?: number | null
+          ticker_outcomes?: Json
+          sector_outcomes?: Json
+          direction_correct?: boolean | null
+          magnitude_error?: number | null
+          ticker_accuracy_pct?: number | null
+          sector_accuracy_pct?: number | null
+          overall_score?: number | null
+          validation_window_hours?: number
+          validated_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          score_id?: string
+          actual_direction?: string
+          actual_magnitude?: number | null
+          ticker_outcomes?: Json
+          sector_outcomes?: Json
+          direction_correct?: boolean | null
+          magnitude_error?: number | null
+          ticker_accuracy_pct?: number | null
+          sector_accuracy_pct?: number | null
+          overall_score?: number | null
+          validation_window_hours?: number
+          validated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_validations_event_id_fkey"
+            columns: ["event_id"]
+            referencedRelation: "government_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_validations_score_id_fkey"
+            columns: ["score_id"]
+            referencedRelation: "event_impact_scores"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       swarm_signals: {
         Row: {
           id: string

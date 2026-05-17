@@ -1,10 +1,26 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { serve } from "inngest/express";
 import { inngest } from "./src/inngest/client.js";
 import * as functions from "./src/inngest/functions/index.js";
+import { handleMcp } from "./src/mcp/server.js";
+import { naturalLanguageToSQL, explainSQL, isSafeQuery } from "./src/lib/nl-query.js";
+import pg from "pg";
 import YahooFinance from "yahoo-finance2";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const AVAILABLE_DOCS = ["overview", "mcp", "query"] as const;
+type DocSlug = (typeof AVAILABLE_DOCS)[number];
+const DOCS_DIR = join(__dirname, "docs");
+
+const { Pool } = pg;
+const dbPool = process.env.SUPABASE_DB_URL
+  ? new Pool({ connectionString: process.env.SUPABASE_DB_URL, max: 5 })
+  : null;
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 const app = express();
@@ -89,6 +105,81 @@ app.post("/api/swarm/run", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Natural language query endpoint
+app.post("/api/query", async (req, res) => {
+  if (!dbPool) {
+    res.status(503).json({ error: "SUPABASE_DB_URL not configured" });
+    return;
+  }
+
+  const { question } = req.body || {};
+  if (!question || typeof question !== "string" || question.trim().length < 3) {
+    res.status(400).json({ error: "question is required" });
+    return;
+  }
+
+  try {
+    const sql = await naturalLanguageToSQL(question.trim());
+
+    if (!isSafeQuery(sql)) {
+      res.status(400).json({ error: "Generated query was not a safe SELECT statement", sql });
+      return;
+    }
+
+    const result = await dbPool.query(sql);
+    const columns = result.fields.map((f) => f.name);
+    const [explanation] = await Promise.all([explainSQL(question, sql)]);
+
+    res.json({ sql, results: { rows: result.rows, columns }, explanation });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// MCP endpoint — bearer token auth, then handles GET/POST/DELETE
+app.all("/mcp", (req, res, next) => {
+  const token = process.env.MCP_API_KEY;
+  if (!token) {
+    res.set("Content-Type", "application/json").status(503).end(JSON.stringify({ error: "MCP_API_KEY not configured" }));
+    return;
+  }
+  const auth = req.headers["authorization"] ?? "";
+  if (auth !== `Bearer ${token}`) {
+    res.set("Content-Type", "application/json").status(401).end(JSON.stringify({ error: "Unauthorized" }));
+    return;
+  }
+  next();
+}, handleMcp);
+
+// Docs — content-negotiated: text/plain or text/markdown → raw markdown (for agents),
+// everything else → JSON metadata. Claude Code requests text/plain.
+app.get("/docs", (_req, res) => {
+  res.set("Content-Type", "application/json").end(
+    JSON.stringify({ available: AVAILABLE_DOCS, hint: "GET /docs/:slug with Accept: text/plain for markdown" })
+  );
+});
+
+app.get("/docs/:slug", (req, res) => {
+  const slug = req.params.slug;
+  const valid = (AVAILABLE_DOCS as readonly string[]).includes(slug);
+  if (!valid) {
+    res.set("Content-Type", "application/json").status(404).end(
+      JSON.stringify({ error: "Not found", available: AVAILABLE_DOCS })
+    );
+    return;
+  }
+  const accept = req.headers["accept"] ?? "";
+  const wantsMarkdown = /text\/(plain|markdown)/.test(accept) && !/text\/html/.test(accept);
+  if (wantsMarkdown) {
+    const md = readFileSync(join(DOCS_DIR, `${slug}.md`), "utf8");
+    res.set("Content-Type", "text/markdown; charset=utf-8").end(md);
+    return;
+  }
+  res.set("Content-Type", "application/json").end(
+    JSON.stringify({ slug, docs_url: `/docs/${slug}`, hint: "Request with Accept: text/plain to get markdown" })
+  );
 });
 
 // Health check
