@@ -6,7 +6,7 @@ import {
   shouldRunFullDebate,
   type MentionContext,
   type DebateVerdict,
-} from "../../lib/debate-analysis.js";
+} from "../../lib/debate-analysis-v2.js";
 
 export const extractPredictions = inngest.createFunction(
   {

@@ -15,6 +15,7 @@
  */
 
 import { llmClient } from "../integrations/llm/client.js";
+import Anthropic from "@anthropic-ai/sdk";
 
 // ---------------------------------------------------------------------------
 // Types (unchanged from v1)
@@ -196,23 +197,107 @@ Respond ONLY with valid JSON:
 }
 
 // ---------------------------------------------------------------------------
+// Reasoning Research Manager (Claude extended thinking)
+// ---------------------------------------------------------------------------
+
+async function runReasoningManager(
+  ctx: MentionContext,
+  bullCase: string,
+  bearCase: string
+): Promise<DebateVerdict> {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const prompt = `You are a Research Manager synthesizing a bull/bear debate on ${ctx.ticker} into a structured investment verdict.
+
+Original trigger:
+"${ctx.content}" (${ctx.platform})
+
+Bull case:
+${bullCase}
+
+Bear case:
+${bearCase}
+
+${ctx.priceContext ? `Price context: ${ctx.priceContext}` : ""}
+
+Evaluate both arguments critically. Score reasoning quality honestly:
+
+**reasoning_quality_score (0-1):** Does the source post show a clear thesis with supporting evidence?
+**data_discipline_score (0-1):** Does it cite real sources, numbers, or documents?
+**transparency_score (0-1):** Does it acknowledge uncertainty and risks?
+
+A post with no data citations and pure speculation scores 0.1-0.3. A post with filings, numbers, and explicit risk acknowledgment scores 0.7-1.0.
+
+Respond ONLY with valid JSON:
+{
+  "is_prediction": boolean,
+  "sentiment": "bullish" | "bearish" | "neutral",
+  "confidence_level": "low" | "medium" | "high",
+  "price_target": number | null,
+  "timeframe_days": number | null,
+  "reasoning": "2-3 sentence synthesis of why this verdict",
+  "bull_case": "1-2 sentence summary of strongest bull argument",
+  "bear_case": "1-2 sentence summary of strongest bear argument",
+  "catalysts": ["specific catalyst 1", "specific catalyst 2"],
+  "risks": ["specific risk 1", "specific risk 2"],
+  "data_sources_cited": ["source1", "source2"],
+  "reasoning_quality_score": 0.0-1.0,
+  "data_discipline_score": 0.0-1.0,
+  "transparency_score": 0.0-1.0
+}`;
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-5",
+    max_tokens: 16000,
+    thinking: { type: "enabled", budget_tokens: 10000 },
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  // Capture the thinking trace to prepend to reasoning
+  const thinkingBlock = response.content.find((b) => b.type === "thinking");
+  const textBlock = response.content.find((b) => b.type === "text");
+
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("No text block in reasoning response");
+  }
+
+  const cleaned = textBlock.text.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
+  const verdict = JSON.parse(cleaned) as DebateVerdict;
+
+  // Prepend a condensed thinking summary to reasoning so it surfaces in the dashboard
+  if (thinkingBlock && thinkingBlock.type === "thinking" && thinkingBlock.thinking) {
+    const thinkingSummary = thinkingBlock.thinking.slice(0, 400).replace(/\n+/g, " ").trim();
+    verdict.reasoning = `[reasoning trace] ${thinkingSummary}... | ${verdict.reasoning}`;
+  }
+
+  return verdict;
+}
+
+// ---------------------------------------------------------------------------
 // Public API (unchanged from v1)
 // ---------------------------------------------------------------------------
 
 /**
  * Run the full bull/bear debate pipeline on a mention.
- * NOW WITH AUTOMATIC LLM FAILOVER!
- *
- * If Grok fails (rate limit, outage), automatically tries:
- * Grok → GPT-4 → Claude → Gemini
- *
- * @param ctx  Mention + ticker context
- * @returns    Structured debate verdict ready to store in predictions table
+ * Uses Claude extended thinking for the Research Manager verdict step.
+ * Falls back to standard multi-provider manager if ANTHROPIC_API_KEY is absent.
  */
 export async function runDebateAnalysis(ctx: MentionContext): Promise<DebateVerdict> {
   const bullCase = await runBullResearcher(ctx);
   const bearCase = await runBearResearcher(ctx, bullCase);
-  const verdict = await runResearchManager(ctx, bullCase, bearCase);
+
+  let verdict: DebateVerdict;
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      verdict = await runReasoningManager(ctx, bullCase, bearCase);
+      console.log("[debate-analysis] Used Claude reasoning for verdict");
+    } catch (err) {
+      console.warn("[debate-analysis] Reasoning manager failed, falling back:", err);
+      verdict = await runResearchManager(ctx, bullCase, bearCase);
+    }
+  } else {
+    verdict = await runResearchManager(ctx, bullCase, bearCase);
+  }
 
   return {
     ...verdict,
