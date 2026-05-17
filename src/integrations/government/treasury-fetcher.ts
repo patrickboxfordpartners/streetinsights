@@ -1,4 +1,4 @@
-import type { GovernmentEvent, GovernmentEventFetcher } from "./types.js";
+import type { GovernmentEventFetcher } from "./types.js";
 
 const TREASURY_AUCTIONS_URL =
   "https://www.treasurydirect.gov/TA_WS/securities/announced?format=json&pagesize=20";
