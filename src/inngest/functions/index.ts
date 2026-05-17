@@ -25,3 +25,6 @@ export { runSwarmSentiment, dailySwarmSentimentRefresh } from "./run-swarm-senti
 export { scanGovernmentCalendar } from "./scan-government-calendar.js";
 export { scoreEventImpact } from "./score-event-impact.js";
 export { validateEventOutcomes } from "./validate-event-outcomes.js";
+
+// Adanos multi-source sentiment
+export { scanAdanosSentiment } from "./scan-adanos-sentiment.js";

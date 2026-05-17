@@ -1,5 +1,6 @@
 import { inngest } from "../client.js";
 import { supabase } from "../../integrations/supabase/client.js";
+import { validateReasoning } from "../../lib/reasoning-validator.js";
 
 const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
 
@@ -216,9 +217,89 @@ export const validatePredictions = inngest.createFunction(
       return { validated: validationCount };
     });
 
+    // Validate reasoning quality for predictions that now have outcomes.
+    // Runs after price validation — skipped if ANTHROPIC_API_KEY is absent.
+    // Perplexity grounding is best-effort; missing PERPLEXITY_API_KEY falls back
+    // to Claude-only scoring without external grounding.
+    const reasoningValidated = await step.run("validate-reasoning", async () => {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        return { skipped: true, count: 0 };
+      }
+
+      // Fetch predictions that were just validated, with their reasoning fields
+      const predictionIds = predictionsToValidate.map(p => p.id);
+      const { data: predictionDetails } = await supabase
+        .from("predictions")
+        .select("id, ticker_id, sentiment, reasoning, data_sources_cited, catalysts")
+        .in("id", predictionIds);
+
+      if (!predictionDetails || predictionDetails.length === 0) {
+        return { skipped: false, count: 0 };
+      }
+
+      // Build a map of prediction_id → was_correct from the validations we just created
+      const { data: freshValidations } = await supabase
+        .from("validations")
+        .select("prediction_id, was_correct")
+        .in("prediction_id", predictionIds)
+        .order("validation_date", { ascending: false });
+
+      const outcomeMap = new Map(
+        (freshValidations || []).map(v => [v.prediction_id, v.was_correct])
+      );
+
+      // Build ticker symbol map
+      const tickerIds = [...new Set(predictionDetails.map(p => p.ticker_id))];
+      const { data: tickers } = await supabase
+        .from("tickers")
+        .select("id, symbol")
+        .in("id", tickerIds);
+      const tickerMap = new Map((tickers || []).map(t => [t.id, t.symbol]));
+
+      let count = 0;
+
+      for (const pred of predictionDetails) {
+        const was_correct = outcomeMap.get(pred.id);
+        if (was_correct === undefined) continue; // not validated this run
+
+        const ticker = tickerMap.get(pred.ticker_id) ?? "UNKNOWN";
+
+        try {
+          const result = await validateReasoning({
+            prediction_id: pred.id,
+            ticker,
+            sentiment: pred.sentiment as "bullish" | "bearish" | "neutral",
+            reasoning: pred.reasoning ?? "",
+            data_sources_cited: pred.data_sources_cited ?? [],
+            catalysts: pred.catalysts ?? [],
+            was_correct,
+          });
+
+          await supabase
+            .from("predictions")
+            .update({
+              reasoning_quality_score: result.reasoning_quality_score,
+              data_discipline_score: result.data_discipline_score,
+              transparency_score: result.transparency_score,
+            })
+            .eq("id", pred.id);
+
+          count++;
+        } catch (err) {
+          console.warn(`[validate-reasoning] failed for ${pred.id}:`, err);
+        }
+
+        // Pace calls: Claude Haiku is fast but Perplexity has rate limits
+        await new Promise(r => setTimeout(r, 1500));
+      }
+
+      return { skipped: false, count };
+    });
+
     return {
       predictions_checked: predictionsToValidate.length,
       validations_created: validated.validated,
+      reasoning_validated: reasoningValidated.count,
     };
   }
 );
