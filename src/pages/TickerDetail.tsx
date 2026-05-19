@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { formatNumber, formatDateTime, formatDate } from '../lib/utils'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts'
+import { SentimentHeatmap } from '../components/charts/SentimentHeatmap'
 import { useYahooFinanceData } from '../hooks/useYahooFinanceData'
 import { PricePredictionChart, type PredictionPoint } from '../components/charts/PricePredictionChart'
 import { CandlestickChart, type CandleData } from '../components/charts/CandlestickChart'
@@ -35,6 +36,7 @@ interface TickerInfo {
 interface MentionFrequency {
   date: string
   mention_count: number
+  avg_sentiment_score: number | null
   spike_detected: boolean
 }
 
@@ -62,6 +64,7 @@ export function TickerDetail() {
   const { symbol } = useParams<{ symbol: string }>()
   const [ticker, setTicker] = useState<TickerInfo | null>(null)
   const [frequency, setFrequency] = useState<MentionFrequency[]>([])
+  const [heatmapData, setHeatmapData] = useState<MentionFrequency[]>([])
   const [predictions, setPredictions] = useState<Prediction[]>([])
   const [mentions, setMentions] = useState<Mention[]>([])
   const [sentimentBreakdown, setSentimentBreakdown] = useState({ bullish: 0, bearish: 0, neutral: 0 })
@@ -103,7 +106,7 @@ export function TickerDetail() {
     ] = await Promise.all([
       supabase
         .from('mention_frequency')
-        .select('date, mention_count, spike_detected')
+        .select('date, mention_count, avg_sentiment_score, spike_detected')
         .eq('ticker_id', tickerData.id)
         .gte('date', startDate.toISOString().split('T')[0])
         .order('date', { ascending: true }),
@@ -122,6 +125,17 @@ export function TickerDetail() {
     ])
 
     setFrequency(freqData || [])
+
+    // Heatmap always shows last 26 weeks regardless of date range
+    const heatmapStart = new Date()
+    heatmapStart.setDate(heatmapStart.getDate() - 182)
+    const { data: heatData } = await supabase
+      .from('mention_frequency')
+      .select('date, mention_count, avg_sentiment_score, spike_detected')
+      .eq('ticker_id', tickerData.id)
+      .gte('date', heatmapStart.toISOString().split('T')[0])
+      .order('date', { ascending: true })
+    setHeatmapData(heatData || [])
 
     if (predData) {
       setPredictions(
@@ -381,6 +395,21 @@ export function TickerDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <SwarmSignalPanel tickerId={ticker.id} symbol={ticker.symbol} />
           <AIAgentPanel tickerId={ticker.id} />
+        </div>
+      )}
+
+      {/* Sentiment Activity Heatmap */}
+      {heatmapData.length > 0 && (
+        <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b bg-accent/30">
+            <h2 className="text-base font-bold">Sentiment Activity</h2>
+            <p className="text-xs text-muted-foreground">
+              Last 26 weeks · Color = sentiment direction · Intensity = mention volume · Amber border = spike
+            </p>
+          </div>
+          <div className="p-5">
+            <SentimentHeatmap data={heatmapData} weeks={26} />
+          </div>
         </div>
       )}
 
