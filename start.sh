@@ -12,4 +12,5 @@ EOF
 
 echo "[start.sh] Vibe-Trading .env written"
 
-exec npx tsx worker.ts
+npx tsx worker.ts
+echo "[start.sh] Worker exited with code $?"

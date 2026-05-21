@@ -15,7 +15,7 @@ WORKDIR /app
 
 # ── Node deps ─────────────────────────────────────────────────────────────
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install
 
 # ── Clone Vibe-Trading and install Python deps ────────────────────────────
 RUN git clone --depth 1 https://github.com/HKUDS/Vibe-Trading.git /vibe-trading
@@ -28,11 +28,11 @@ COPY tsconfig*.json ./
 COPY worker.ts ./
 COPY src/ ./src/
 
-# vibe-trading config — set in Railway environment variables
+# vibe-trading config — set in environment variables
 ENV VIBE_TRADING_DIR=/vibe-trading
 ENV VIBE_PYTHON=/usr/bin/python3
 
-# Startup script: writes vibe-trading .env from Railway env vars, then starts worker
+# Startup script: writes vibe-trading .env then starts worker
 COPY start.sh ./
 RUN chmod +x start.sh
 
