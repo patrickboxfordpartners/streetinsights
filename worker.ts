@@ -36,9 +36,9 @@ app.use(
   serve({
     client: inngest,
     functions: Object.values(functions),
-    serveHost: process.env.RAILWAY_PUBLIC_DOMAIN
+    serveHost: process.env.WORKER_HOST || (process.env.RAILWAY_PUBLIC_DOMAIN
       ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-      : undefined,
+      : undefined),
     servePath: "/api/inngest",
   })
 );
