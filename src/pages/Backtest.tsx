@@ -355,7 +355,7 @@ export function Backtest() {
       )}
 
       {/* Controls — Prediction Backtest */}
-      {activeTab === 'prediction' && <div className="bg-card rounded-lg border shadow-sm p-6">
+      {activeTab === 'prediction' && <><div className="bg-card rounded-lg border shadow-sm p-6">
         <h2 className="text-base font-bold mb-4">Simulation Parameters</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
@@ -566,7 +566,7 @@ export function Backtest() {
           </div>
         </>
       )}
-      </div>}
+      </>}
     </div>
   )
 }
