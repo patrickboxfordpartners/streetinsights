@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import logoIcon from '../assets/logo-icon.png';
 
 // ── Animated counter ─────────────────────────────────────────────────────────
@@ -65,89 +65,317 @@ function TickerBar() {
 }
 
 // ── Dashboard mockup ──────────────────────────────────────────────────────────
+const ALL_SIGNALS = [
+  { symbol: 'NVDA', sentiment: 'Bullish', confidence: 92, source: 'r/wallstreetbets', mentions: 1204, spike: '+45%', color: 'emerald', age: '1m' },
+  { symbol: 'AMD', sentiment: 'Bullish', confidence: 78, source: '@OptionsFlow', mentions: 956, spike: '+67%', color: 'emerald', age: '3m' },
+  { symbol: 'AAPL', sentiment: 'Bearish', confidence: 65, source: 'Financial News', mentions: 623, spike: '-12%', color: 'red', age: '5m' },
+  { symbol: 'TSLA', sentiment: 'Bullish', confidence: 84, source: 'r/investing', mentions: 847, spike: '+23%', color: 'emerald', age: '7m' },
+  { symbol: 'PLTR', sentiment: 'Bullish', confidence: 88, source: '@OptionsFlow', mentions: 1103, spike: '+89%', color: 'emerald', age: '9m' },
+];
+
+const PREDICTIONS = [
+  { symbol: 'NVDA', target: '$1,100', timeframe: '2 weeks', confidence: 87, outcome: 'pending', analyst: 'u/DeepValueDave' },
+  { symbol: 'TSLA', target: '$280', timeframe: '1 month', confidence: 73, outcome: 'hit', analyst: '@SentimentSam' },
+  { symbol: 'AMD', target: '$195', timeframe: '3 weeks', confidence: 81, outcome: 'pending', analyst: 'r/stocks top post' },
+];
+
+const SOURCES = [
+  { name: 'u/DeepValueDave', platform: 'Reddit', winRate: '74%', calls: 43, grade: 'A', color: 'emerald' },
+  { name: '@OptionsFlow', platform: 'X', winRate: '68%', calls: 127, grade: 'B+', color: 'blue' },
+  { name: 'r/wallstreetbets', platform: 'Reddit', winRate: '61%', calls: 892, grade: 'B', color: 'purple' },
+];
+
+const ALERTS_FEED = [
+  { symbol: 'NVDA', msg: 'Spike detected: +45% mention volume', age: '2m ago' },
+  { symbol: 'PLTR', msg: 'New prediction: $42 target, 2 weeks', age: '5m ago' },
+  { symbol: 'AMD', msg: 'Source alert: u/DeepValueDave posted', age: '11m ago' },
+  { symbol: 'TSLA', msg: 'Spike detected: +23% mention volume', age: '18m ago' },
+  { symbol: 'AAPL', msg: 'Bearish signal: -12% spike confirmed', age: '22m ago' },
+];
+
+const SIDEBAR_TABS = ['Overview', 'Live Signals', 'Predictions', 'Sources', 'Alerts', 'Backtest'];
+
+const URL_MAP: Record<string, string> = {
+  'Overview': 'dashboard',
+  'Live Signals': 'signals',
+  'Predictions': 'predictions',
+  'Sources': 'sources',
+  'Alerts': 'alerts',
+  'Backtest': 'backtest',
+};
+
 function DashboardMockup() {
-  const signals = [
-    { symbol: 'NVDA', sentiment: 'Bullish', confidence: 92, source: 'r/wallstreetbets', mentions: 1204, spike: '+45%', color: 'emerald' },
-    { symbol: 'AMD', sentiment: 'Bullish', confidence: 78, source: '@OptionsFlow', mentions: 956, spike: '+67%', color: 'emerald' },
-    { symbol: 'AAPL', sentiment: 'Bearish', confidence: 65, source: 'Financial News', mentions: 623, spike: '-12%', color: 'red' },
-  ];
+  const [activeTab, setActiveTab] = useState('Live Signals');
+  const [visibleSignals, setVisibleSignals] = useState(ALL_SIGNALS.slice(0, 3));
+  const [alertIdx, setAlertIdx] = useState(0);
+  const [alertVisible, setAlertVisible] = useState(true);
+  const [tickerInput, setTickerInput] = useState('');
+  const [tickerResult, setTickerResult] = useState<{ symbol: string; sentiment: string; confidence: number; mentions: number; spike: string; up: boolean } | null>(null);
+
+  const TICKER_DB: Record<string, { sentiment: string; confidence: number; mentions: number; spike: string; up: boolean }> = {
+    NVDA: { sentiment: 'Bullish', confidence: 92, mentions: 1204, spike: '+45%', up: true },
+    AMD: { sentiment: 'Bullish', confidence: 78, mentions: 956, spike: '+67%', up: true },
+    AAPL: { sentiment: 'Bearish', confidence: 65, mentions: 623, spike: '-12%', up: false },
+    TSLA: { sentiment: 'Bullish', confidence: 84, mentions: 847, spike: '+23%', up: true },
+    PLTR: { sentiment: 'Bullish', confidence: 88, mentions: 1103, spike: '+89%', up: true },
+    MSFT: { sentiment: 'Bullish', confidence: 71, mentions: 542, spike: '+8%', up: true },
+    SPY: { sentiment: 'Neutral', confidence: 58, mentions: 734, spike: '+15%', up: true },
+    QQQ: { sentiment: 'Bullish', confidence: 66, mentions: 489, spike: '+22%', up: true },
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'Live Signals') return;
+    const id = setInterval(() => {
+      setVisibleSignals((prev) => {
+        const next = ALL_SIGNALS[(ALL_SIGNALS.indexOf(prev[0]) + 1) % ALL_SIGNALS.length];
+        return [next, ...prev.slice(0, 2)];
+      });
+    }, 2500);
+    return () => clearInterval(id);
+  }, [activeTab]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setAlertVisible(false);
+      setTimeout(() => {
+        setAlertIdx((i) => (i + 1) % ALERTS_FEED.length);
+        setAlertVisible(true);
+      }, 400);
+    }, 3500);
+    return () => clearInterval(id);
+  }, []);
+
+  function handleTickerLookup(e: FormEvent) {
+    e.preventDefault();
+    const sym = tickerInput.trim().toUpperCase();
+    const data = TICKER_DB[sym];
+    if (data) {
+      setTickerResult({ symbol: sym, ...data });
+    } else {
+      setTickerResult({ symbol: sym, sentiment: 'Low Activity', confidence: 12, mentions: 7, spike: '+1%', up: true });
+    }
+  }
+
+  const alert = ALERTS_FEED[alertIdx];
 
   return (
-    <div className="relative mx-auto max-w-4xl">
-      {/* Glow */}
-      <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-transparent to-purple-500/5 blur-2xl pointer-events-none" />
-
-      {/* Browser chrome */}
-      <div className="relative rounded-2xl overflow-hidden border border-gray-700/60 shadow-2xl shadow-black/40">
-        {/* Title bar */}
-        <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
-          <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500/70" />
-            <div className="w-3 h-3 rounded-full bg-amber-500/70" />
-            <div className="w-3 h-3 rounded-full bg-green-500/70" />
-          </div>
-          <div className="flex-1 max-w-xs mx-auto bg-gray-800 rounded px-3 py-1 text-xs text-gray-400 text-center font-mono">
-            app.getstreetinsights.com/signals
-          </div>
-        </div>
-
-        {/* App */}
-        <div className="bg-gray-950 flex h-80">
-          {/* Sidebar */}
-          <div className="w-44 bg-gray-900 border-r border-gray-800 p-3 space-y-1 shrink-0">
-            {['Overview', 'Live Signals', 'Predictions', 'Sources', 'Alerts', 'Backtest'].map((item, i) => (
-              <div key={item} className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-xs font-medium ${i === 1 ? 'bg-emerald-500/10 text-emerald-400' : 'text-gray-500'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${i === 1 ? 'bg-emerald-400' : 'bg-gray-700'}`} />
-                {item}
-              </div>
-            ))}
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 p-4 overflow-hidden">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-white">Live Signals</h3>
-              <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                </span>
-                Live
-              </div>
+    <div className="space-y-8">
+      {/* Ticker lookup widget */}
+      <div className="max-w-sm mx-auto">
+        <form onSubmit={handleTickerLookup} className="flex gap-2">
+          <input
+            type="text"
+            value={tickerInput}
+            onChange={(e) => { setTickerInput(e.target.value); setTickerResult(null); }}
+            placeholder="Try NVDA, TSLA, AMD..."
+            className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500 font-mono uppercase"
+            maxLength={6}
+          />
+          <button type="submit" className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-semibold transition-colors">
+            Look up
+          </button>
+        </form>
+        {tickerResult && (
+          <div className="mt-2 bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded ${tickerResult.up ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{tickerResult.symbol}</span>
+              <span className={`text-sm font-semibold ${tickerResult.up ? 'text-emerald-400' : 'text-red-400'}`}>{tickerResult.sentiment}</span>
             </div>
-
-            <div className="space-y-2">
-              {signals.map((s) => (
-                <div key={s.symbol} className="bg-gray-900 border border-gray-800 rounded-lg p-3 flex items-center gap-3">
-                  <div className={`text-xs font-bold px-2 py-0.5 rounded ${s.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                    {s.symbol}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium ${s.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}`}>{s.sentiment}</span>
-                      <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${s.color === 'emerald' ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${s.confidence}%` }} />
-                      </div>
-                      <span className="text-xs text-gray-500">{s.confidence}%</span>
-                    </div>
-                    <p className="text-[10px] text-gray-600 truncate mt-0.5">{s.source} · {s.mentions} mentions</p>
-                  </div>
-                  <span className={`text-xs font-semibold shrink-0 ${s.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}`}>{s.spike}</span>
-                </div>
-              ))}
+            <div className="flex items-center gap-4 text-xs text-gray-400">
+              <span>{tickerResult.mentions.toLocaleString()} mentions</span>
+              <span className={tickerResult.up ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>{tickerResult.spike} spike</span>
+              <span className="text-gray-600">{tickerResult.confidence}% conf.</span>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Floating alert badge */}
-      <div className="absolute -top-4 -right-4 md:-right-8 bg-gray-900 border border-gray-700 rounded-xl shadow-xl px-3 py-2.5 flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-          <span className="text-sm">🚨</span>
+      <div className="relative mx-auto max-w-4xl">
+        {/* Glow */}
+        <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-transparent to-purple-500/5 blur-2xl pointer-events-none" />
+
+        {/* Browser chrome */}
+        <div className="relative rounded-2xl overflow-hidden border border-gray-700/60 shadow-2xl shadow-black/40">
+          {/* Title bar */}
+          <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-500/70" />
+              <div className="w-3 h-3 rounded-full bg-amber-500/70" />
+              <div className="w-3 h-3 rounded-full bg-green-500/70" />
+            </div>
+            <div className="flex-1 max-w-xs mx-auto bg-gray-800 rounded px-3 py-1 text-xs text-gray-400 text-center font-mono">
+              app.getstreetinsights.com/{URL_MAP[activeTab] ?? 'signals'}
+            </div>
+          </div>
+
+          {/* App */}
+          <div className="bg-gray-950 flex h-80">
+            {/* Sidebar */}
+            <div className="w-44 bg-gray-900 border-r border-gray-800 p-3 space-y-1 shrink-0">
+              {SIDEBAR_TABS.map((item) => {
+                const active = item === activeTab;
+                return (
+                  <button
+                    key={item}
+                    onClick={() => setActiveTab(item)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-xs font-medium transition-colors text-left ${active ? 'bg-emerald-500/10 text-emerald-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'}`}
+                  >
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-emerald-400' : 'bg-gray-700'}`} />
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-4 overflow-hidden">
+              {/* Live Signals tab */}
+              {activeTab === 'Live Signals' && (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-white">Live Signals</h3>
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                      </span>
+                      Live
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {visibleSignals.map((s, idx) => (
+                      <div key={`${s.symbol}-${idx}`} className="bg-gray-900 border border-gray-800 rounded-lg p-3 flex items-center gap-3">
+                        <div className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${s.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                          {s.symbol}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-medium ${s.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}`}>{s.sentiment}</span>
+                            <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all duration-700 ${s.color === 'emerald' ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${s.confidence}%` }} />
+                            </div>
+                            <span className="text-xs text-gray-500">{s.confidence}%</span>
+                          </div>
+                          <p className="text-[10px] text-gray-600 truncate mt-0.5">{s.source} · {s.mentions} mentions</p>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0 gap-0.5">
+                          <span className={`text-xs font-semibold ${s.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}`}>{s.spike}</span>
+                          <span className="text-[10px] text-gray-700">{s.age} ago</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Predictions tab */}
+              {activeTab === 'Predictions' && (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-white">AI-Extracted Predictions</h3>
+                    <span className="text-[10px] text-gray-500">Updated 1m ago</span>
+                  </div>
+                  <div className="space-y-2">
+                    {PREDICTIONS.map((p) => (
+                      <div key={p.symbol} className="bg-gray-900 border border-gray-800 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded">{p.symbol}</span>
+                            <span className="text-xs text-white font-semibold">{p.target}</span>
+                            <span className="text-[10px] text-gray-600">in {p.timeframe}</span>
+                          </div>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${p.outcome === 'hit' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-700 text-gray-400'}`}>
+                            {p.outcome === 'hit' ? '✓ Hit' : 'Pending'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${p.confidence}%` }} />
+                          </div>
+                          <span className="text-[10px] text-gray-500">{p.confidence}%</span>
+                          <span className="text-[10px] text-gray-700 truncate max-w-24">{p.analyst}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Sources tab */}
+              {activeTab === 'Sources' && (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-white">Source Leaderboard</h3>
+                    <span className="text-[10px] text-gray-500">By win rate</span>
+                  </div>
+                  <div className="space-y-2">
+                    {SOURCES.map((s, i) => (
+                      <div key={s.name} className="bg-gray-900 border border-gray-800 rounded-lg p-3 flex items-center gap-3">
+                        <span className="text-xs font-black text-gray-600 w-4 shrink-0">#{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-white truncate">{s.name}</p>
+                          <p className="text-[10px] text-gray-600">{s.platform} · {s.calls} calls</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${s.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-400' : s.color === 'blue' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>{s.grade}</span>
+                          <span className="text-xs text-gray-300">{s.winRate}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Alerts tab */}
+              {activeTab === 'Alerts' && (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-white">Alert Feed</h3>
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                      </span>
+                      Live
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {ALERTS_FEED.map((a, i) => (
+                      <div key={i} className={`bg-gray-900 border rounded-lg px-3 py-2 flex items-center gap-2.5 transition-opacity ${i === 0 ? 'border-emerald-800/50' : 'border-gray-800 opacity-60'}`}>
+                        <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded shrink-0">{a.symbol}</span>
+                        <span className="text-[11px] text-gray-300 flex-1 truncate">{a.msg}</span>
+                        <span className="text-[10px] text-gray-700 shrink-0">{a.age}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Overview and Backtest: fallback */}
+              {(activeTab === 'Overview' || activeTab === 'Backtest') && (
+                <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                    <span className="text-lg">{activeTab === 'Backtest' ? '📊' : '👁'}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-white">{activeTab}</p>
+                  <p className="text-xs text-gray-600 max-w-40">Click Live Signals, Predictions, Sources, or Alerts to explore the dashboard.</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <div>
-          <p className="text-xs font-semibold text-white">Spike detected: NVDA</p>
-          <p className="text-[10px] text-gray-400">+45% mention volume · 2m ago</p>
+
+        {/* Floating alert badge — animates */}
+        <div
+          className={`absolute -top-4 -right-4 md:-right-8 bg-gray-900 border border-gray-700 rounded-xl shadow-xl px-3 py-2.5 flex items-center gap-2.5 transition-all duration-300 ${alertVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
+        >
+          <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 text-sm">
+            🚨
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-white">Alert: {alert.symbol}</p>
+            <p className="text-[10px] text-gray-400">{alert.msg.replace(/^[^:]+: /, '')} · {alert.age}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -176,6 +404,7 @@ export function Landing() {
             <a href="#features" className="text-sm text-gray-300 hover:text-white transition-colors">Features</a>
             <a href="#how-it-works" className="text-sm text-gray-300 hover:text-white transition-colors">How It Works</a>
             <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">Pricing</Link>
+            <Link to="/demo" className="text-sm text-gray-300 hover:text-white transition-colors">Demo</Link>
             <Link to="/login" className="text-sm text-gray-300 hover:text-white transition-colors">Sign In</Link>
             <Link to="/sign-up" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-semibold transition-colors">
               Get Started
@@ -584,8 +813,19 @@ export function Landing() {
             </ul>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto mt-10 pt-6 border-t border-gray-900">
+        <div className="max-w-7xl mx-auto mt-10 pt-6 border-t border-gray-900 flex items-center justify-between">
           <p className="text-xs text-gray-600">© {new Date().getFullYear()} Boxford Partners LLC DBA STREET INSIGHTS. All rights reserved.</p>
+          <a
+            href="https://www.linkedin.com/company/boxfordpartners"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Boxford Partners on LinkedIn"
+            className="text-gray-700 hover:text-gray-500 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+            </svg>
+          </a>
         </div>
       </footer>
     </div>
