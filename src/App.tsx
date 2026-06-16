@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { CookieBanner } from './components/CookieBanner'
+import Privacy from './pages/Privacy'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { ThemeProvider } from './hooks/useTheme'
 import { ToastProvider } from './components/Toast'
@@ -115,7 +117,9 @@ function App() {
                 <Route path="government" element={<GovernmentCalendar />} />
                 <Route path="query" element={<QuerySignals />} />
               </Route>
+              <Route path="/privacy" element={<Privacy />} />
               </Routes>
+              <CookieBanner />
               <Analytics />
             </ToastProvider>
           </AuthProvider>
