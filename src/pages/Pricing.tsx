@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import logoIcon from "../assets/logo-icon.png";
+import LandingFooter from "../components/LandingFooter";
 
 const CheckIcon = () => (
   <svg className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -110,6 +111,7 @@ export function Pricing() {
             </a>
             {/* Desktop nav */}
             <div className="hidden sm:flex items-center gap-4">
+              <Link to="/blog" className="text-sm text-gray-300 hover:text-white transition-colors">Blog</Link>
               <Link to="/login" className="text-sm text-gray-300 hover:text-white transition-colors">Sign In</Link>
               <a href="#plans" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-medium transition-colors">Get Started</a>
             </div>
@@ -217,24 +219,7 @@ export function Pricing() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer style={{ backgroundColor: "#020617", borderTop: "1px solid rgb(15,23,42)" }}>
-        <div className="max-w-7xl mx-auto px-6 py-12 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <a href="https://getstreetinsights.com" className="flex items-center gap-2">
-              <img src={logoIcon} alt="Street Insights" className="h-6 w-6" />
-              <span className="font-bold">Street Insights</span>
-            </a>
-            <p className="text-xs text-slate-500">
-              &copy; 2026 Street Insights. A{" "}
-              <a href="https://www.boxfordpartners.com" target="_blank" rel="noopener noreferrer" className="hover:text-slate-300 transition-colors">
-                Boxford Partners
-              </a>{" "}
-              product.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <LandingFooter />
     </div>
   );
 }
