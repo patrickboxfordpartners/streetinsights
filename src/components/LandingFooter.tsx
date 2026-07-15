@@ -118,6 +118,14 @@ export default function LandingFooter() {
             <ColLink href="https://www.boxfordpartners.com/labs" label="All products" external />
           </div>
 
+          {/* Resources */}
+          <div>
+            {colLabel('Resources')}
+            <ColLink href="/blog" label="Blog" isRoute />
+            <ColLink href="/faq" label="FAQ" isRoute />
+            <ColLink href="/pricing" label="Pricing" isRoute />
+          </div>
+
           {/* Company */}
           <div>
             {colLabel('Company')}
