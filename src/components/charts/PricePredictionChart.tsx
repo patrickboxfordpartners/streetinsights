@@ -22,7 +22,7 @@ export interface PriceData {
 export interface PredictionPoint {
   id: string;
   date: string;
-  targetPrice: number;
+  targetPrice?: number;
   sentiment: 'bullish' | 'bearish' | 'neutral';
   sourceName: string;
   wasCorrect?: boolean | null;
@@ -122,9 +122,11 @@ export function PricePredictionChart({
                     <Minus className="h-3 w-3 text-yellow-500" />
                   )}
                 </div>
-                <p className="text-sm font-semibold text-foreground">
-                  Target: ${formatNumber(pred.targetPrice, 2)}
-                </p>
+                {pred.targetPrice != null && (
+                  <p className="text-sm font-semibold text-foreground">
+                    Target: ${formatNumber(pred.targetPrice, 2)}
+                  </p>
+                )}
                 {pred.wasCorrect !== null && (
                   <p
                     className={`text-xs font-medium ${
@@ -160,7 +162,7 @@ export function PricePredictionChart({
 
   // Calculate price range for Y-axis
   const priceRange = useMemo(() => {
-    const prices = [...priceData.map((p) => p.price), ...predictions.map((p) => p.targetPrice)];
+    const prices = [...priceData.map((p) => p.price), ...predictions.filter((p) => p.targetPrice != null).map((p) => p.targetPrice as number)];
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     const padding = (max - min) * 0.1;

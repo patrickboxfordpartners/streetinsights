@@ -41,8 +41,8 @@ export function TickerAnalysis() {
   const [bulkSymbols, setBulkSymbols] = useState('')
   const [importingBulk, setImportingBulk] = useState(false)
   const { watchlist, toggle: toggleWatchlist } = useWatchlist()
-  const [searchQuery, setSearchQuery] = useUrlState('q', '')
-  const [sectorFilter, setSectorFilter] = useUrlState('sector', 'all')
+  const [searchQuery, setSearchQuery] = useUrlState<string>('q', '')
+  const [sectorFilter, setSectorFilter] = useUrlState<string>('sector', 'all')
   const [sortBy, setSortBy] = useUrlState<'mentions' | 'velocity' | 'symbol'>('sort', 'mentions')
 
   useEffect(() => {

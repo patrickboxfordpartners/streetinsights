@@ -10,8 +10,8 @@ type DateRange = "1d" | "3d" | "7d" | "30d";
 
 export function GovernmentCalendar() {
   const [range, setRange] = useUrlState<DateRange>("range", "7d");
-  const [category, setCategory] = useUrlState("category", "all");
-  const [minMagnitude, setMinMagnitude] = useUrlState("min", 0);
+  const [category, setCategory] = useUrlState<string>("category", "all");
+  const [minMagnitude, setMinMagnitude] = useUrlState<number>("min", 0);
   const { events, loading, accuracy, refresh } = useGovernmentEvents(range);
 
   const filtered = events.filter((e) => {

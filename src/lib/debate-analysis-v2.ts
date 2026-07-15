@@ -16,6 +16,7 @@
 
 import { llmClient } from "../integrations/llm/client.js";
 import Anthropic from "@anthropic-ai/sdk";
+import { parseLLMJson } from "./llm-json.js";
 
 // ---------------------------------------------------------------------------
 // Types (unchanged from v1)
@@ -191,9 +192,24 @@ Respond ONLY with valid JSON:
     1000
   );
 
-  // Strip markdown code fences if present
-  const cleaned = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
-  return JSON.parse(cleaned) as DebateVerdict;
+  const nullVerdict: DebateVerdict = {
+    is_prediction: false,
+    sentiment: "neutral",
+    confidence_level: "low",
+    price_target: null,
+    timeframe_days: null,
+    reasoning: "",
+    bull_case: "",
+    bear_case: "",
+    catalysts: [],
+    risks: [],
+    data_sources_cited: [],
+    reasoning_quality_score: 0,
+    data_discipline_score: 0,
+    transparency_score: 0,
+    debate_rounds: 0,
+  };
+  return parseLLMJson<DebateVerdict>(raw, nullVerdict);
 }
 
 // ---------------------------------------------------------------------------
@@ -261,8 +277,24 @@ Respond ONLY with valid JSON:
     throw new Error("No text block in reasoning response");
   }
 
-  const cleaned = textBlock.text.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
-  const verdict = JSON.parse(cleaned) as DebateVerdict;
+  const nullVerdict2: DebateVerdict = {
+    is_prediction: false,
+    sentiment: "neutral",
+    confidence_level: "low",
+    price_target: null,
+    timeframe_days: null,
+    reasoning: "",
+    bull_case: "",
+    bear_case: "",
+    catalysts: [],
+    risks: [],
+    data_sources_cited: [],
+    reasoning_quality_score: 0,
+    data_discipline_score: 0,
+    transparency_score: 0,
+    debate_rounds: 0,
+  };
+  const verdict = parseLLMJson<DebateVerdict>(textBlock.text, nullVerdict2);
 
   // Prepend a condensed thinking summary to reasoning so it surfaces in the dashboard
   if (thinkingBlock && thinkingBlock.type === "thinking" && thinkingBlock.thinking) {
@@ -341,8 +373,24 @@ Respond ONLY with valid JSON:
     800
   );
 
-  const cleaned = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
-  const verdict = JSON.parse(cleaned) as DebateVerdict;
+  const nullVerdict3: DebateVerdict = {
+    is_prediction: false,
+    sentiment: "neutral",
+    confidence_level: "low",
+    price_target: null,
+    timeframe_days: null,
+    reasoning: "",
+    bull_case: "",
+    bear_case: "",
+    catalysts: [],
+    risks: [],
+    data_sources_cited: [],
+    reasoning_quality_score: 0,
+    data_discipline_score: 0,
+    transparency_score: 0,
+    debate_rounds: 0,
+  };
+  const verdict = parseLLMJson<DebateVerdict>(raw, nullVerdict3);
 
   return {
     ...verdict,

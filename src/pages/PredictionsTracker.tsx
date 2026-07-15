@@ -27,7 +27,7 @@ export function PredictionsTracker() {
   const [predictions, setPredictions] = useState<Prediction[]>([])
   const [filter, setFilter] = useUrlState<'all' | 'pending' | 'validated'>('filter', 'all')
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useUrlState('q', '')
+  const [searchTerm, setSearchTerm] = useUrlState<string>('q', '')
 
   useEffect(() => {
     fetchPredictions()

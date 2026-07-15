@@ -343,7 +343,7 @@ export function Backtest() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
                     <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(1)}k`} />
-                    <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, 'Portfolio']} />
+                    <Tooltip formatter={(v) => [`$${Number(v).toLocaleString()}`, 'Portfolio']} />
                     <ReferenceLine y={strategyResult.initial_cash} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
                     <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
                   </LineChart>

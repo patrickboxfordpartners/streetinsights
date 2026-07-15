@@ -72,12 +72,41 @@ app.get("/api/quotes", async (req, res) => {
     }
 
     const results = await yahooFinance.quote(symbols);
-    const quotes = (Array.isArray(results) ? results : [results]).map((q) => ({
+    const quotes = (Array.isArray(results) ? results : [results]).map((q: any) => ({
       symbol: q.symbol,
       price: q.regularMarketPrice ?? 0,
       change: q.regularMarketChange ?? 0,
       changePercent: q.regularMarketChangePercent ?? 0,
       marketState: q.marketState,
+      // Extended fields for TickerDetail fundamentals + StockQuote
+      dayLow: q.regularMarketDayLow ?? 0,
+      dayHigh: q.regularMarketDayHigh ?? 0,
+      yearHigh: q.fiftyTwoWeekHigh ?? 0,
+      yearLow: q.fiftyTwoWeekLow ?? 0,
+      marketCap: q.marketCap ?? 0,
+      volume: q.regularMarketVolume ?? 0,
+      avgVolume: q.averageDailyVolume3Month ?? 0,
+      open: q.regularMarketOpen ?? 0,
+      previousClose: q.regularMarketPreviousClose ?? 0,
+      pe: q.trailingPE ?? 0,
+      forwardPE: q.forwardPE ?? 0,
+      eps: q.trailingEps ?? 0,
+      forwardEps: q.epsForward ?? 0,
+      fiftyDayAvg: q.fiftyDayAverage ?? 0,
+      twoHundredDayAvg: q.twoHundredDayAverage ?? 0,
+      bookValue: q.bookValue ?? 0,
+      priceToBook: q.priceToBook ?? 0,
+      revenue: q.totalRevenue ?? 0,
+      revenuePerShare: q.revenuePerShare ?? 0,
+      profitMargins: q.profitMargins ?? 0,
+      operatingMargins: q.operatingMargins ?? 0,
+      returnOnAssets: q.returnOnAssets ?? 0,
+      returnOnEquity: q.returnOnEquity ?? 0,
+      debtToEquity: q.debtToEquity ?? 0,
+      currentRatio: q.currentRatio ?? 0,
+      quickRatio: q.quickRatio ?? 0,
+      grossMargins: q.grossMargins ?? 0,
+      ebitdaMargins: q.ebitdaMargins ?? 0,
     }));
 
     quoteCache = { data: quotes, ts: now };

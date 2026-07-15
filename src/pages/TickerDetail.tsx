@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../integrations/supabase/client'
 import {
   ArrowLeft,
@@ -19,7 +19,6 @@ import { CandlestickChart, type CandleData } from '../components/charts/Candlest
 import { FundamentalsDashboard } from '../components/charts/FundamentalsDashboard'
 import { TechnicalIndicatorsChart, type PriceDataPoint } from '../components/charts/TechnicalIndicatorsChart'
 import { VolumeSpikeAnalysisChart, type VolumeSpikeDataPoint } from '../components/charts/VolumeSpikeAnalysisChart'
-import { EarningsSurpriseChart } from '../components/charts/EarningsSurpriseChart'
 import { AIAgentPanel } from '../components/AIAgentPanel'
 import { SwarmSignalPanel } from '../components/SwarmSignalPanel'
 import { SkeletonChart, SkeletonAgentPanel } from '../components/SkeletonLoader'
@@ -45,6 +44,7 @@ interface Prediction {
   sentiment: string
   source_name: string
   prediction_date: string
+  price_target: number | null
   validated: boolean
   was_correct: boolean | null
 }
@@ -62,6 +62,7 @@ type DateRange = '7d' | '30d' | '90d' | 'all'
 
 export function TickerDetail() {
   const { symbol } = useParams<{ symbol: string }>()
+  const navigate = useNavigate()
   const [ticker, setTicker] = useState<TickerInfo | null>(null)
   const [frequency, setFrequency] = useState<MentionFrequency[]>([])
   const [heatmapData, setHeatmapData] = useState<MentionFrequency[]>([])
@@ -112,7 +113,7 @@ export function TickerDetail() {
         .order('date', { ascending: true }),
       supabase
         .from('predictions')
-        .select('id, sentiment, prediction_date, sources (name), validations (was_correct)')
+        .select('id, sentiment, price_target, prediction_date, sources (name), validations (was_correct)')
         .eq('ticker_id', tickerData.id)
         .order('prediction_date', { ascending: false })
         .limit(20),
@@ -142,6 +143,7 @@ export function TickerDetail() {
         predData.map((p: any) => ({
           id: p.id,
           sentiment: p.sentiment,
+          price_target: p.price_target ?? null,
           source_name: p.sources?.name || 'Unknown',
           prediction_date: p.prediction_date,
           validated: !!p.validations,
@@ -230,12 +232,12 @@ export function TickerDetail() {
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link
-          to="/tickers"
+        <button
+          onClick={() => navigate(-1)}
           className="p-2 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-5 w-5" />
-        </Link>
+        </button>
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold font-mono tracking-tight">${ticker.symbol}</h1>
@@ -427,7 +429,7 @@ export function TickerDetail() {
               predictions={predictions.map((pred): PredictionPoint => ({
                 id: pred.id,
                 date: pred.prediction_date.split('T')[0],
-                targetPrice: 100, // TODO: Get target price from predictions table
+                targetPrice: pred.price_target ?? undefined,
                 sentiment: pred.sentiment as 'bullish' | 'bearish' | 'neutral',
                 sourceName: pred.source_name,
                 wasCorrect: pred.was_correct,
@@ -478,50 +480,6 @@ export function TickerDetail() {
                   };
                 })
                 .filter((d): d is VolumeSpikeDataPoint => d !== null)}
-            />
-          </div>
-
-          {/* Earnings Surprise Chart - placeholder data for now */}
-          <div className="bg-card rounded-lg border shadow-sm p-5">
-            <EarningsSurpriseChart
-              data={[
-                {
-                  quarter: 'Q1 2025',
-                  date: '2025-04-15',
-                  actualEPS: 2.45,
-                  estimatedEPS: 2.30,
-                  surprise: 0.15,
-                  surprisePercent: 6.5,
-                  priceChange: 3.2,
-                },
-                {
-                  quarter: 'Q4 2024',
-                  date: '2025-01-15',
-                  actualEPS: 2.80,
-                  estimatedEPS: 2.75,
-                  surprise: 0.05,
-                  surprisePercent: 1.8,
-                  priceChange: 1.5,
-                },
-                {
-                  quarter: 'Q3 2024',
-                  date: '2024-10-15',
-                  actualEPS: 2.20,
-                  estimatedEPS: 2.40,
-                  surprise: -0.20,
-                  surprisePercent: -8.3,
-                  priceChange: -4.7,
-                },
-                {
-                  quarter: 'Q2 2024',
-                  date: '2024-07-15',
-                  actualEPS: 2.10,
-                  estimatedEPS: 2.05,
-                  surprise: 0.05,
-                  surprisePercent: 2.4,
-                  priceChange: 2.1,
-                },
-              ]}
             />
           </div>
 

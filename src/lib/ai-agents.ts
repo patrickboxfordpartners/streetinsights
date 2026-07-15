@@ -9,6 +9,7 @@ import { supabase } from "../integrations/supabase/client";
 import { routeLLMRequest } from "./llm-router";
 import { getEconomicContextForAI } from "./economic-data";
 import { fmpClient, type HistoricalPrice } from "./fmp";
+import { parseLLMJson } from "./llm-json.js";
 
 export interface AgentPersona {
   id: string;
@@ -37,6 +38,14 @@ export interface AgentAnalysis {
   persona_name?: string;
   persona_slug?: string;
   persona_framework?: string;
+  // Structured signal fields
+  thesis?: string;
+  catalysts?: string[];
+  invalidators?: string[];
+  watch_items?: string[];
+  risk_flags?: string[];
+  signal_type?: "momentum" | "reversal" | "breakout" | "hold" | "avoid";
+  time_sensitivity?: "immediate" | "days" | "weeks" | "months";
 }
 
 export interface TickerContext {
@@ -54,6 +63,32 @@ export interface TickerContext {
   };
   recent_news?: string[];
   technical_signals?: string[];
+}
+
+/**
+ * Blend a quantitative score with a sentiment score using a configurable weight.
+ * Both inputs are clamped to [0, 100] before blending.
+ */
+export function blendScores(
+  quantScore: number,
+  sentimentScore: number,
+  quantWeight = 0.6
+): number {
+  const q = Math.min(100, Math.max(0, quantScore));
+  const s = Math.min(100, Math.max(0, sentimentScore));
+  return Math.round(q * quantWeight + s * (1 - quantWeight));
+}
+
+/**
+ * Convenience wrapper for the Inngest agent pipeline that blends an
+ * AlphaVantage technical/fundamental score with a Grok sentiment score.
+ */
+export function blendAlphaVantageWithSentiment(
+  alphaVantageScore: number,
+  grokSentimentScore: number,
+  weight?: number
+): number {
+  return blendScores(alphaVantageScore, grokSentimentScore, weight);
 }
 
 /**
@@ -166,8 +201,17 @@ Respond with valid JSON only, no markdown fences, matching this exact schema:
   "confidence": <integer 0-100>,
   "key_factors": ["<factor>", ...],
   "risks": ["<risk>", ...],
-  "recommendation": "<one sentence>"
-}`,
+  "recommendation": "<one sentence>",
+  "thesis": "<optional one-sentence investment thesis>",
+  "catalysts": ["<optional upcoming catalyst>", ...],
+  "invalidators": ["<optional condition that would invalidate the thesis>", ...],
+  "watch_items": ["<optional thing to monitor>", ...],
+  "risk_flags": ["<optional specific named risk>", ...],
+  "signal_type": "<optional: momentum | reversal | breakout | hold | avoid>",
+  "time_sensitivity": "<optional: immediate | days | weeks | months>"
+}
+
+The optional fields (thesis through time_sensitivity) may be omitted if not clearly supported by the data.`,
       userPrompt: prompt,
       temperature: 0.7,
       maxTokens: 1000,
@@ -311,59 +355,153 @@ function buildContextString(context: TickerContext): string {
   return parts.join("\n");
 }
 
-/**
- * Parse LLM response into structured data.
- * LLM is instructed to return JSON; we parse it directly with regex fallback.
- */
-function parseAgentResponse(text: string): {
+interface ParsedAgentResponse {
   sentiment: "bullish" | "bearish" | "neutral" | "hold";
   confidence: number;
   keyFactors: string[];
   risks: string[];
   recommendation: string;
-} {
-  const defaults = {
-    sentiment: "neutral" as const,
+  thesis?: string;
+  catalysts?: string[];
+  invalidators?: string[];
+  watch_items?: string[];
+  risk_flags?: string[];
+  signal_type?: "momentum" | "reversal" | "breakout" | "hold" | "avoid";
+  time_sensitivity?: "immediate" | "days" | "weeks" | "months";
+}
+
+/**
+ * Parse LLM response into structured data.
+ * Uses parseLLMJson for robust fence-stripping and repair.
+ */
+function parseAgentResponse(text: string): ParsedAgentResponse {
+  const defaults: ParsedAgentResponse = {
+    sentiment: "neutral",
     confidence: 50,
-    keyFactors: [] as string[],
-    risks: [] as string[],
+    keyFactors: [],
+    risks: [],
     recommendation: "",
   };
 
-  // Strip markdown fences if present
-  const cleaned = text.replace(/```(?:json)?\n?/g, "").trim();
+  const parsed = parseLLMJson<Record<string, unknown>>(text, {});
 
-  // Attempt direct JSON parse
+  const validSentiments = ["bullish", "bearish", "neutral", "hold"];
+  const validSignalTypes = ["momentum", "reversal", "breakout", "hold", "avoid"];
+  const validTimeSensitivities = ["immediate", "days", "weeks", "months"];
+
+  const result: ParsedAgentResponse = {
+    sentiment: validSentiments.includes(parsed.sentiment as string)
+      ? (parsed.sentiment as ParsedAgentResponse["sentiment"])
+      : defaults.sentiment,
+    confidence:
+      typeof parsed.confidence === "number"
+        ? Math.min(100, Math.max(0, parsed.confidence))
+        : defaults.confidence,
+    keyFactors: Array.isArray(parsed.key_factors)
+      ? (parsed.key_factors as unknown[]).filter(Boolean).map(String)
+      : defaults.keyFactors,
+    risks: Array.isArray(parsed.risks)
+      ? (parsed.risks as unknown[]).filter(Boolean).map(String)
+      : defaults.risks,
+    recommendation:
+      typeof parsed.recommendation === "string"
+        ? parsed.recommendation.trim()
+        : defaults.recommendation,
+  };
+
+  if (typeof parsed.thesis === "string") result.thesis = parsed.thesis.trim();
+
+  if (Array.isArray(parsed.catalysts))
+    result.catalysts = (parsed.catalysts as unknown[]).filter(Boolean).map(String);
+
+  if (Array.isArray(parsed.invalidators))
+    result.invalidators = (parsed.invalidators as unknown[]).filter(Boolean).map(String);
+
+  if (Array.isArray(parsed.watch_items))
+    result.watch_items = (parsed.watch_items as unknown[]).filter(Boolean).map(String);
+
+  if (Array.isArray(parsed.risk_flags))
+    result.risk_flags = (parsed.risk_flags as unknown[]).filter(Boolean).map(String);
+
+  if (validSignalTypes.includes(parsed.signal_type as string))
+    result.signal_type = parsed.signal_type as ParsedAgentResponse["signal_type"];
+
+  if (validTimeSensitivities.includes(parsed.time_sensitivity as string))
+    result.time_sensitivity = parsed.time_sensitivity as ParsedAgentResponse["time_sensitivity"];
+
+  return result;
+}
+
+interface DiagnosisStep1 {
+  diagnosis: string;
+  root_causes: string[];
+}
+
+interface DiagnosisStep2 {
+  hypotheses: Array<{
+    hypothesis: string;
+    priority: number;
+  }>;
+}
+
+interface SignalDivergenceDiagnosis {
+  diagnosis: string;
+  hypotheses: Array<{
+    hypothesis: string;
+    priority: number;
+  }>;
+  confidence: number;
+}
+
+/**
+ * Two-step AlphaEvo-style diagnosis for when sentiment diverges from price action.
+ * Step 1: diagnose root cause. Step 2: generate testable hypotheses.
+ */
+export async function diagnoseSignalDivergence(
+  symbol: string,
+  sentimentScore: number,
+  priceChangePct: number,
+  context: TickerContext,
+  llmApiKey: string
+): Promise<SignalDivergenceDiagnosis | null> {
   try {
-    const parsed = JSON.parse(cleaned);
-    const validSentiments = ["bullish", "bearish", "neutral", "hold"];
+    const contextStr = buildContextString(context);
+
+    const step1Raw = await routeLLMRequest({
+      systemPrompt:
+        "You are a financial signal analyst. Identify why a sentiment signal diverged from price action. Be specific and data-driven. Return JSON: { diagnosis: string, root_causes: string[] }",
+      userPrompt: `Symbol: ${symbol}. Sentiment score: ${sentimentScore}/100. Actual price change: ${priceChangePct}%. Context: ${contextStr}`,
+      temperature: 0,
+      maxTokens: 400,
+    });
+
+    const step1Fallback: DiagnosisStep1 = { diagnosis: "", root_causes: [] };
+    const step1 = parseLLMJson<DiagnosisStep1>(step1Raw.content, step1Fallback);
+
+    if (!step1.diagnosis) return null;
+
+    const step2Raw = await routeLLMRequest({
+      systemPrompt:
+        "You are a hypothesis generator for financial signals. Given a diagnosis, propose 2-3 testable hypotheses for what's actually driving price. Return JSON: { hypotheses: [{ hypothesis: string, priority: number }] }",
+      userPrompt: `Diagnosis: ${step1.diagnosis}. Root causes: ${(step1.root_causes || []).join(", ")}. Symbol: ${symbol}.`,
+      temperature: 0,
+      maxTokens: 400,
+    });
+
+    const step2Fallback: DiagnosisStep2 = { hypotheses: [] };
+    const step2 = parseLLMJson<DiagnosisStep2>(step2Raw.content, step2Fallback);
+
+    const divergence = Math.abs(sentimentScore - (50 + priceChangePct));
+    const confidence = Math.min(100, Math.max(0, Math.round(100 - divergence)));
+
     return {
-      sentiment: validSentiments.includes(parsed.sentiment) ? parsed.sentiment : defaults.sentiment,
-      confidence: typeof parsed.confidence === "number" ? Math.min(100, Math.max(0, parsed.confidence)) : defaults.confidence,
-      keyFactors: Array.isArray(parsed.key_factors) ? parsed.key_factors.filter(Boolean) : defaults.keyFactors,
-      risks: Array.isArray(parsed.risks) ? parsed.risks.filter(Boolean) : defaults.risks,
-      recommendation: typeof parsed.recommendation === "string" ? parsed.recommendation.trim() : defaults.recommendation,
+      diagnosis: step1.diagnosis,
+      hypotheses: Array.isArray(step2.hypotheses) ? step2.hypotheses : [],
+      confidence,
     };
-  } catch {
-    // Fallback: extract JSON object substring and retry
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        const validSentiments = ["bullish", "bearish", "neutral", "hold"];
-        return {
-          sentiment: validSentiments.includes(parsed.sentiment) ? parsed.sentiment : defaults.sentiment,
-          confidence: typeof parsed.confidence === "number" ? Math.min(100, Math.max(0, parsed.confidence)) : defaults.confidence,
-          keyFactors: Array.isArray(parsed.key_factors) ? parsed.key_factors.filter(Boolean) : defaults.keyFactors,
-          risks: Array.isArray(parsed.risks) ? parsed.risks.filter(Boolean) : defaults.risks,
-          recommendation: typeof parsed.recommendation === "string" ? parsed.recommendation.trim() : defaults.recommendation,
-        };
-      } catch {
-        // fall through to defaults
-      }
-    }
-    console.error("[ai-agents] Failed to parse LLM response as JSON, using defaults");
-    return defaults;
+  } catch (err) {
+    console.error("[ai-agents] diagnoseSignalDivergence error:", err);
+    return null;
   }
 }
 

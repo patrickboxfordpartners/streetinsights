@@ -46,31 +46,31 @@ export const generateMarketPost = inngest.createFunction(
       return data || [];
     });
 
-    // Generate post with Grok
-    const draft = await step.run("generate-draft", async () => {
+    const spikesSummary = spikes.map((s: Record<string, unknown>) => {
+      const ticker = s.tickers as Record<string, unknown> | null;
+      return `${ticker?.symbol} (${ticker?.company_name}): ${s.mention_count} mentions, sentiment ${s.avg_sentiment_score ?? "N/A"}`;
+    }).join("\n");
+
+    const predictionsSummary = predictions.map((p: Record<string, unknown>) =>
+      `${p.ticker_symbol}: ${p.direction} (${p.confidence}% confidence) - ${p.rationale}`
+    ).join("\n");
+
+    const title = `Street Insights: ${spikes.map((s: Record<string, unknown>) => (s.tickers as Record<string, unknown>)?.symbol).join(", ")}`;
+    const draftMeta = { spike_count: spikes.length, prediction_count: predictions.length };
+
+    // Generate LinkedIn post
+    const linkedinDraft = await step.run("generate-linkedin-draft", async () => {
       if (!XAI_API_KEY) throw new Error("XAI_API_KEY not set");
-
-      const spikesSummary = spikes.map((s: Record<string, unknown>) => {
-        const ticker = s.tickers as Record<string, unknown> | null;
-        return `${ticker?.symbol} (${ticker?.company_name}): ${s.mention_count} mentions, sentiment ${s.avg_sentiment_score ?? "N/A"}`;
-      }).join("\n");
-
-      const predictionsSummary = predictions.map((p: Record<string, unknown>) =>
-        `${p.ticker_symbol}: ${p.direction} (${p.confidence}% confidence) - ${p.rationale}`
-      ).join("\n");
 
       const response = await fetch("https://api.x.ai/v1/chat/completions", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${XAI_API_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${XAI_API_KEY}` },
         body: JSON.stringify({
           model: "grok-2-latest",
           messages: [
             {
               role: "system",
-              content: `You are a sharp financial commentator writing LinkedIn posts for Boxford Partners, a consulting and technology firm. Write in a confident, data-driven tone. Keep posts under 1300 characters. Include relevant data points. No hashtag spam, 2-3 max. No emojis. Professional but not boring.`,
+              content: `You are a sharp financial commentator writing LinkedIn posts for Street Insights, a market intelligence platform. Write in a confident, data-driven tone. Keep posts under 1300 characters. Include relevant data points. No hashtag spam, 2-3 max. No emojis. Professional but not boring.`,
             },
             {
               role: "user",
@@ -87,24 +87,49 @@ export const generateMarketPost = inngest.createFunction(
       return data.choices[0]?.message?.content || "";
     });
 
-    // Save draft
-    const saved = await step.run("save-draft", async () => {
+    // Generate Twitter/X post
+    const twitterDraft = await step.run("generate-twitter-draft", async () => {
+      if (!XAI_API_KEY) throw new Error("XAI_API_KEY not set");
+
+      const response = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${XAI_API_KEY}` },
+        body: JSON.stringify({
+          model: "grok-2-latest",
+          messages: [
+            {
+              role: "system",
+              content: `You are a sharp financial commentator writing tweets for Street Insights on X (Twitter). Write in a punchy, direct tone for FinTwit. Must be under 280 characters including spaces. Lead with the most striking data point. No hashtag spam, 1-2 max. No emojis. No "not financial advice" disclaimers — keep it tight.`,
+            },
+            {
+              role: "user",
+              content: `Write a single tweet about today's most notable market signal.\n\nSpikes detected:\n${spikesSummary}\n\nAI predictions:\n${predictionsSummary}\n\nPick the single most interesting signal and lead with it. Under 280 characters.`,
+            },
+          ],
+          max_tokens: 100,
+          temperature: 0.8,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`Grok API error: ${response.status}`);
+      const data = await response.json();
+      return data.choices[0]?.message?.content || "";
+    });
+
+    // Save both drafts
+    const saved = await step.run("save-drafts", async () => {
       const { data, error } = await supabase
         .from("content_drafts")
-        .insert({
-          source: "market-signals",
-          type: "linkedin",
-          title: `Street Insights: ${spikes.map((s: Record<string, unknown>) => (s.tickers as Record<string, unknown>)?.symbol).join(", ")}`,
-          body: draft,
-          metadata: { spike_count: spikes.length, prediction_count: predictions.length },
-        })
-        .select("id")
-        .single();
+        .insert([
+          { source: "market-signals", type: "linkedin", title, body: linkedinDraft, metadata: draftMeta },
+          { source: "market-signals", type: "twitter", title, body: twitterDraft, metadata: draftMeta },
+        ])
+        .select("id");
 
       if (error) throw error;
       return data;
     });
 
-    return { status: "created", draftId: saved.id };
+    return { status: "created", draftIds: saved.map((r: { id: string }) => r.id) };
   }
 );

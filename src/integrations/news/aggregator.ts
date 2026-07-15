@@ -4,6 +4,7 @@
  */
 
 import type { NewsProvider, NewsArticle, NewsSearchOptions, NewsSearchResult } from "./types.js";
+import { FinnhubNewsProvider } from "./finnhub.js";
 import { SerpAPINewsProvider } from "./serpapi.js";
 import { TavilyNewsProvider } from "./tavily.js";
 import { SearXNGNewsProvider } from "./searxng.js";
@@ -80,8 +81,9 @@ export class NewsAggregator {
   private cacheTTL = 15 * 60 * 1000; // 15 minutes
 
   constructor() {
-    // Priority order: paid/high-quality first, free fallback last
+    // Priority order: Finnhub first (ticker-native), then general news, free fallback last
     this.providers = [
+      new FinnhubNewsProvider(),
       new SerpAPINewsProvider(),
       new TavilyNewsProvider(),
       new NewsAPIProvider(),

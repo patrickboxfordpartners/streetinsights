@@ -19,25 +19,31 @@ export const validatePredictions = inngest.createFunction(
   async ({ step }) => {
     const today = new Date();
 
-    // Find predictions that need validation
+    // Find predictions that need validation.
+    // Also catches predictions where target_date is null and prediction_date is >7 days ago
+    // (extracted without explicit timeframe — default to 7-day window).
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
     const predictionsToValidate = await step.run("fetch-predictions-due", async () => {
-      const { data, error } = await supabase
-        .from("predictions")
-        .select(
-          `
-          id,
-          ticker_id,
-          source_id,
-          sentiment,
-          price_target,
-          timeframe_days,
-          prediction_date,
-          target_date
-        `
-        )
-        .lte("target_date", today.toISOString())
-        .order("target_date", { ascending: true })
-        .limit(100);
+      const [withTarget, withoutTarget] = await Promise.all([
+        supabase
+          .from("predictions")
+          .select("id, ticker_id, source_id, sentiment, price_target, timeframe_days, prediction_date, target_date")
+          .lte("target_date", today.toISOString())
+          .order("target_date", { ascending: true })
+          .limit(80),
+        supabase
+          .from("predictions")
+          .select("id, ticker_id, source_id, sentiment, price_target, timeframe_days, prediction_date, target_date")
+          .is("target_date", null)
+          .lte("prediction_date", sevenDaysAgo.toISOString())
+          .order("prediction_date", { ascending: true })
+          .limit(20),
+      ]);
+
+      const data = [...(withTarget.data || []), ...(withoutTarget.data || [])];
+      const error = withTarget.error || withoutTarget.error;
 
       if (error) throw error;
 

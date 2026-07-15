@@ -23,7 +23,7 @@ export function SourceLeaderboard() {
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useUrlState<'credibility' | 'accuracy' | 'volume'>('sort', 'credibility')
-  const [searchTerm, setSearchTerm] = useUrlState('q', '')
+  const [searchTerm, setSearchTerm] = useUrlState<string>('q', '')
 
   useEffect(() => {
     fetchSources()

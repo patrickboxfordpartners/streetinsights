@@ -1,6 +1,6 @@
 #!/bin/sh
-# Write vibe-trading .env from Railway environment variables at startup
-# This keeps secrets out of the image layers
+# Write vibe-trading .env from Fly.io secrets at container startup.
+# Keeps API keys out of image layers.
 
 mkdir -p /vibe-trading/agent
 

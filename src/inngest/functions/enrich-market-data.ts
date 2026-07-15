@@ -1,5 +1,6 @@
 import { inngest } from "../client.js";
 import { supabase } from "../../integrations/supabase/client.js";
+import { isUSMarketOpen } from "../../lib/market-calendar.js";
 
 const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
 
@@ -137,6 +138,13 @@ export const enrichMarketData = inngest.createFunction(
 
     if (tickers.length === 0) {
       return { status: "skipped", reason: "No active tickers to enrich" };
+    }
+
+    const marketOpen = await step.run("check-market-open", async () => {
+      return { open: isUSMarketOpen() };
+    });
+    if (!marketOpen.open) {
+      return { skipped: "market closed" };
     }
 
     const symbols = tickers.map(t => t.symbol);

@@ -14,8 +14,21 @@ interface ContentDraft {
   created_at: string
 }
 
+type Platform = 'linkedin' | 'twitter'
+
+const CHAR_LIMIT: Record<Platform, number> = {
+  linkedin: 1300,
+  twitter: 280,
+}
+
+const PLATFORM_LABEL: Record<Platform, string> = {
+  linkedin: 'LinkedIn',
+  twitter: 'Twitter / X',
+}
+
 export function ContentDrafts() {
-  const [drafts, setDrafts] = useState<ContentDraft[]>([])
+  const [allDrafts, setAllDrafts] = useState<ContentDraft[]>([])
+  const [platform, setPlatform] = useState<Platform>('linkedin')
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<ContentDraft | null>(null)
   const [editBody, setEditBody] = useState('')
@@ -32,10 +45,13 @@ export function ContentDrafts() {
       .from('content_drafts')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50)
-    setDrafts((data as unknown as ContentDraft[]) || [])
+      .limit(100)
+    setAllDrafts((data as unknown as ContentDraft[]) || [])
     setLoading(false)
   }
+
+  const drafts = allDrafts.filter(d => d.type === platform)
+  const charLimit = CHAR_LIMIT[platform]
 
   async function saveDraft() {
     if (!editing) return
@@ -45,7 +61,7 @@ export function ContentDrafts() {
       .update({ body: editBody, updated_at: new Date().toISOString() })
       .eq('id', editing.id)
     if (!error) {
-      setDrafts(d => d.map(x => x.id === editing.id ? { ...x, body: editBody } : x))
+      setAllDrafts(d => d.map(x => x.id === editing.id ? { ...x, body: editBody } : x))
       setEditing(null)
     }
     setSaving(false)
@@ -54,14 +70,13 @@ export function ContentDrafts() {
   async function deleteDraft(id: string) {
     setDeleting(id)
     await supabase.from('content_drafts').delete().eq('id', id)
-    setDrafts(d => d.filter(x => x.id !== id))
+    setAllDrafts(d => d.filter(x => x.id !== id))
     setDeleting(null)
   }
 
   async function markPublished(id: string) {
-    const now = new Date().toISOString()
-    await (supabase as any).from('content_drafts').update({ published_at: now }).eq('id', id)
-    setDrafts(d => d.map(x => x.id === id ? { ...x, published_at: now } : x))
+    await supabase.from('content_drafts').update({ status: 'published' }).eq('id', id)
+    setAllDrafts(d => d.map(x => x.id === id ? { ...x, status: 'published' } : x))
   }
 
   function copyToClipboard(id: string, text: string) {
@@ -83,14 +98,39 @@ export function ContentDrafts() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Content Drafts</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          AI-generated LinkedIn posts from daily market signals, {drafts.length} drafts
+          AI-generated posts from daily market signals
         </p>
+      </div>
+
+      {/* Platform tabs */}
+      <div className="flex gap-1 border-b">
+        {(['linkedin', 'twitter'] as Platform[]).map(p => {
+          const count = allDrafts.filter(d => d.type === p && !d.published_at).length
+          return (
+            <button
+              key={p}
+              onClick={() => setPlatform(p)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                platform === p
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {PLATFORM_LABEL[p]}
+              {count > 0 && (
+                <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {drafts.length === 0 ? (
         <div className="bg-card rounded-lg border shadow-sm p-16 text-center">
           <FileText className="h-10 w-10 mx-auto mb-4 text-muted-foreground opacity-30" />
-          <h3 className="text-base font-bold mb-2">No Drafts Yet</h3>
+          <h3 className="text-base font-bold mb-2">No {PLATFORM_LABEL[platform]} Drafts Yet</h3>
           <p className="text-sm text-muted-foreground">
             Drafts are auto-generated daily at 8 AM when spikes are detected.
           </p>
@@ -137,7 +177,6 @@ export function ContentDrafts() {
                     <button
                       onClick={() => markPublished(draft.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-semibold hover:bg-primary/90 transition-colors"
-                      title="Mark as published"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                       Published
@@ -157,8 +196,8 @@ export function ContentDrafts() {
                 <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground/90">
                   {draft.body}
                 </pre>
-                {draft.metadata && Object.keys(draft.metadata).length > 0 && (
-                  <div className="flex gap-4 mt-3 pt-3 border-t">
+                <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                  <div className="flex gap-4">
                     {(draft.metadata.spike_count as number) != null && (
                       <span className="text-xs text-muted-foreground">
                         {draft.metadata.spike_count as number} spike{(draft.metadata.spike_count as number) !== 1 ? 's' : ''}
@@ -170,7 +209,12 @@ export function ContentDrafts() {
                       </span>
                     )}
                   </div>
-                )}
+                  <span className={`text-xs font-mono ${
+                    draft.body.length > charLimit ? 'text-red-500 font-semibold' : 'text-muted-foreground'
+                  }`}>
+                    {draft.body.length} / {charLimit}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
@@ -196,11 +240,13 @@ export function ContentDrafts() {
                 onChange={(e) => setEditBody(e.target.value)}
                 className="w-full h-64 px-3 py-2 bg-background border rounded-lg text-sm font-sans leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary resize-none"
               />
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {editBody.length} characters
-                {editBody.length > 1300 && (
-                  <span className="ml-1 text-red-500 font-semibold">
-                    (LinkedIn limit: 1300)
+              <p className={`text-xs mt-1.5 font-mono ${
+                editBody.length > charLimit ? 'text-red-500 font-semibold' : 'text-muted-foreground'
+              }`}>
+                {editBody.length} / {charLimit} characters
+                {editBody.length > charLimit && (
+                  <span className="ml-1">
+                    ({PLATFORM_LABEL[platform]} limit exceeded)
                   </span>
                 )}
               </p>

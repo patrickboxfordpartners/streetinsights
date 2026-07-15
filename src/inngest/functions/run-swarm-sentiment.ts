@@ -9,6 +9,7 @@
 
 import { inngest } from "../client.js";
 import { supabase } from "../../integrations/supabase/client.js";
+import { isUSMarketOpen } from "../../lib/market-calendar.js";
 import { spawn } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
@@ -335,6 +336,13 @@ export const dailySwarmSentimentRefresh = inngest.createFunction(
         .limit(20); // Swarm is expensive — cap at 20 per day
       return data || [];
     });
+
+    const marketOpen = await step.run("check-market-open", async () => {
+      return { open: isUSMarketOpen() };
+    });
+    if (!marketOpen.open) {
+      return { skipped: "market closed" };
+    }
 
     // Stagger dispatches — each swarm takes ~3 min, run sequentially
     await step.run("dispatch-swarms", async () => {
