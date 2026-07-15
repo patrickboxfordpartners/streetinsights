@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { CookieBanner } from './components/CookieBanner'
 import Privacy from './pages/Privacy'
@@ -30,6 +31,10 @@ import { QuerySignals } from './pages/QuerySignals'
 import { Analytics } from '@vercel/analytics/react'
 import * as Sentry from '@sentry/react'
 import logoIcon from './assets/logo-icon.png'
+
+const Blog = lazy(() => import('./pages/Blog').then((m) => ({ default: m.Blog })))
+const BlogPost = lazy(() => import('./pages/BlogPost').then((m) => ({ default: m.BlogPost })))
+const FAQ = lazy(() => import('./pages/FAQ').then((m) => ({ default: m.FAQ })))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
@@ -90,6 +95,7 @@ function App() {
               <Route path="/demo" element={<DemoMode />} />
               <Route path="/leaderboard" element={<PublicLeaderboard />} />
               <Route path="/pricing" element={<Pricing />} />
+          <Route path="/faq" element={<Suspense fallback={null}><FAQ /></Suspense>} />
               <Route path="/login" element={<Login />} />
               <Route path="/sign-up" element={<SignUp />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -118,6 +124,8 @@ function App() {
                 <Route path="query" element={<QuerySignals />} />
               </Route>
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/blog" element={<Suspense fallback={null}><Blog /></Suspense>} />
+              <Route path="/blog/:slug" element={<Suspense fallback={null}><BlogPost /></Suspense>} />
               </Routes>
               <CookieBanner />
               <Analytics />

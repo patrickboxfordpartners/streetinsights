@@ -2,60 +2,137 @@ import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import logoIcon from '../assets/logo-icon.png';
 
-// ── Animated counter ─────────────────────────────────────────────────────────
-function Counter({ end, suffix = '', prefix = '' }: { end: number; suffix?: string; prefix?: string }) {
-  const [count, setCount] = useState(0);
-  const started = useRef(false);
-  const ref = useRef<HTMLSpanElement>(null);
+import { featuredFaqs } from "../data/faqs";
+export { featuredFaqs as landingFaqs } from "../data/faqs";
 
-  useEffect(() => {
-    const run = () => {
-      if (started.current) return;
-      started.current = true;
-      const duration = 2000;
-      const start = performance.now();
-      const animate = (now: number) => {
-        const progress = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        setCount(Math.floor(eased * end));
-        if (progress < 1) requestAnimationFrame(animate);
-      };
-      requestAnimationFrame(animate);
-    };
+// ── Tokens ────────────────────────────────────────────────────────────────────
+const C = {
+  canvas:    '#080a0d',
+  surface:   'rgba(255,255,255,0.03)',
+  surfaceHi: 'rgba(255,255,255,0.06)',
+  border:    'rgba(255,255,255,0.07)',
+  borderHi:  'rgba(255,255,255,0.12)',
+  text:      'rgba(255,255,255,0.88)',
+  muted:     'rgba(255,255,255,0.40)',
+  faint:     'rgba(255,255,255,0.18)',
+  amber:     '#e8a84a',
+  amberDim:  'rgba(232,168,74,0.12)',
+  amberGlow: 'rgba(232,168,74,0.08)',
+  green:     '#34d399',
+  greenDim:  'rgba(52,211,153,0.10)',
+  red:       '#f87171',
+  redDim:    'rgba(248,113,113,0.10)',
+} as const;
 
-    const observer = new IntersectionObserver(([e]) => { if (e.isIntersecting) run(); }, { threshold: 0 });
-    if (ref.current) observer.observe(ref.current);
-    const fallback = setTimeout(run, 400);
-    return () => { observer.disconnect(); clearTimeout(fallback); };
-  }, [end]);
+// ── Keyframe styles injected once ─────────────────────────────────────────────
+const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-  return <span ref={ref}>{prefix}{count.toLocaleString()}{suffix}</span>;
-}
+  *, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: ${C.canvas};
+    color: ${C.text};
+    font-family: 'Geist', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes amber-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(232,168,74,0); }
+    50%       { box-shadow: 0 0 20px 4px rgba(232,168,74,0.18); }
+  }
+
+  .animate-fade-up { animation: fade-up 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+  .animate-fade-up-1 { animation-delay: 0.08s; }
+  .animate-fade-up-2 { animation-delay: 0.16s; }
+  .animate-fade-up-3 { animation-delay: 0.24s; }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 22px; border-radius: 4px;
+    background: ${C.amber}; color: #0a0700;
+    font-family: 'Geist', system-ui, sans-serif;
+    font-size: 14px; font-weight: 600; line-height: 1;
+    border: none; cursor: pointer; text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    touch-action: manipulation;
+  }
+  .btn-primary:hover { animation: amber-glow 1.6s ease-in-out infinite; transform: translateY(-1px); }
+  .btn-primary:active { transform: scale(0.97); }
+
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 22px; border-radius: 4px;
+    background: transparent; color: ${C.text};
+    font-family: 'Geist', system-ui, sans-serif;
+    font-size: 14px; font-weight: 500; line-height: 1;
+    border: 1px solid ${C.border}; cursor: pointer; text-decoration: none;
+    transition: border-color 0.15s ease, color 0.15s ease;
+    touch-action: manipulation;
+  }
+  .btn-ghost:hover { border-color: ${C.borderHi}; color: #fff; }
+  .btn-ghost:active { transform: scale(0.97); }
+
+  .section-label {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: ${C.amber}; margin-bottom: 12px;
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  @media (max-width: 768px) {
+    .hide-mobile { display: none !important; }
+  }
+  @media (min-width: 769px) {
+    .hide-desktop { display: none !important; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+`;
 
 // ── Ticker bar ────────────────────────────────────────────────────────────────
 const TICKERS = [
-  { symbol: 'TSLA', change: '+2.3%', mentions: '847', spike: '+23%', up: true },
   { symbol: 'NVDA', change: '+1.8%', mentions: '1,204', spike: '+45%', up: true },
-  { symbol: 'AAPL', change: '-0.5%', mentions: '623', spike: '-12%', up: false },
-  { symbol: 'AMD', change: '+3.1%', mentions: '956', spike: '+67%', up: true },
-  { symbol: 'MSFT', change: '+0.9%', mentions: '542', spike: '+8%', up: true },
+  { symbol: 'AMD',  change: '+3.1%', mentions: '956',   spike: '+67%', up: true },
+  { symbol: 'AAPL', change: '-0.5%', mentions: '623',   spike: '-12%', up: false },
+  { symbol: 'TSLA', change: '+2.3%', mentions: '847',   spike: '+23%', up: true },
   { symbol: 'PLTR', change: '+4.2%', mentions: '1,103', spike: '+89%', up: true },
-  { symbol: 'SPY', change: '+0.3%', mentions: '734', spike: '+15%', up: true },
-  { symbol: 'QQQ', change: '+0.7%', mentions: '489', spike: '+22%', up: true },
+  { symbol: 'MSFT', change: '+0.9%', mentions: '542',   spike: '+8%',  up: true },
+  { symbol: 'SPY',  change: '+0.3%', mentions: '734',   spike: '+15%', up: true },
+  { symbol: 'COIN', change: '+5.1%', mentions: '889',   spike: '+112%', up: true },
 ];
 
 function TickerBar() {
   return (
-    <div className="border-y border-gray-800 bg-gray-900/50 py-2.5 overflow-hidden">
-      <div className="flex gap-8 animate-marquee whitespace-nowrap" style={{ animation: 'marquee 30s linear infinite' }}>
+    <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.015)', overflow: 'hidden', padding: '8px 0' }}>
+      <div style={{ display: 'flex', gap: 40, animation: 'marquee 40s linear infinite', whiteSpace: 'nowrap' }}>
         {[...TICKERS, ...TICKERS].map((t, i) => (
-          <div key={i} className="inline-flex items-center gap-2 text-sm shrink-0">
-            <span className="font-bold text-white">{t.symbol}</span>
-            <span className={t.up ? 'text-emerald-400' : 'text-red-400'}>{t.change}</span>
-            <span className="text-gray-500">•</span>
-            <span className="text-gray-400">{t.mentions} mentions</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded ${t.up ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-              ({t.spike})
+          <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: '#fff', letterSpacing: '0.04em' }}>{t.symbol}</span>
+            <span className="mono" style={{ fontSize: 11, color: t.up ? C.green : C.red }}>{t.change}</span>
+            <span style={{ color: C.faint, fontSize: 10 }}>|</span>
+            <span className="mono" style={{ fontSize: 11, color: C.muted }}>{t.mentions} mentions</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: t.up ? C.amber : C.red, background: t.up ? C.amberDim : C.redDim, padding: '1px 6px', borderRadius: 3 }}>
+              {t.spike}
             </span>
           </div>
         ))}
@@ -64,770 +141,911 @@ function TickerBar() {
   );
 }
 
-// ── Dashboard mockup ──────────────────────────────────────────────────────────
-const ALL_SIGNALS = [
-  { symbol: 'NVDA', sentiment: 'Bullish', confidence: 92, source: 'r/wallstreetbets', mentions: 1204, spike: '+45%', color: 'emerald', age: '1m' },
-  { symbol: 'AMD', sentiment: 'Bullish', confidence: 78, source: '@OptionsFlow', mentions: 956, spike: '+67%', color: 'emerald', age: '3m' },
-  { symbol: 'AAPL', sentiment: 'Bearish', confidence: 65, source: 'Financial News', mentions: 623, spike: '-12%', color: 'red', age: '5m' },
-  { symbol: 'TSLA', sentiment: 'Bullish', confidence: 84, source: 'r/investing', mentions: 847, spike: '+23%', color: 'emerald', age: '7m' },
-  { symbol: 'PLTR', sentiment: 'Bullish', confidence: 88, source: '@OptionsFlow', mentions: 1103, spike: '+89%', color: 'emerald', age: '9m' },
+// ── Live signal mockup row ────────────────────────────────────────────────────
+const SIGNALS = [
+  { symbol: 'NVDA', dir: 'BULLISH', conf: 92, src: 'r/wallstreetbets', spike: '+45%', up: true },
+  { symbol: 'PLTR', dir: 'BULLISH', conf: 88, src: '@OptionsFlow',     spike: '+89%', up: true },
+  { symbol: 'AAPL', dir: 'BEARISH', conf: 65, src: 'Financial Times',  spike: '-12%', up: false },
+  { symbol: 'TSLA', dir: 'BULLISH', conf: 84, src: 'r/investing',       spike: '+23%', up: true },
+  { symbol: 'AMD',  dir: 'BULLISH', conf: 78, src: '@SentimentSam',    spike: '+67%', up: true },
 ];
 
-const PREDICTIONS = [
-  { symbol: 'NVDA', target: '$1,100', timeframe: '2 weeks', confidence: 87, outcome: 'pending', analyst: 'u/DeepValueDave' },
-  { symbol: 'TSLA', target: '$280', timeframe: '1 month', confidence: 73, outcome: 'hit', analyst: '@SentimentSam' },
-  { symbol: 'AMD', target: '$195', timeframe: '3 weeks', confidence: 81, outcome: 'pending', analyst: 'r/stocks top post' },
-];
+function SignalRow({ s, delay = 0 }: { s: typeof SIGNALS[0]; delay?: number }) {
+  return (
+    <div
+      className="animate-fade-up"
+      style={{
+        animationDelay: `${delay}ms`,
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 12px',
+        background: C.surface,
+        border: `1px solid ${C.border}`,
+        borderRadius: 4,
+        fontSize: 12,
+      }}
+    >
+      <span className="mono" style={{ fontWeight: 700, color: '#fff', fontSize: 11, width: 40, letterSpacing: '0.03em' }}>{s.symbol}</span>
+      <span style={{
+        fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: s.up ? C.green : C.red,
+        background: s.up ? C.greenDim : C.redDim,
+        padding: '2px 6px', borderRadius: 3,
+      }}>{s.dir}</span>
+      <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${s.conf}%`, background: s.up ? C.green : C.red, borderRadius: 2, transition: 'width 1s cubic-bezier(0.16,1,0.3,1)' }} />
+      </div>
+      <span className="mono" style={{ fontSize: 10, color: C.muted, width: 24, textAlign: 'right' }}>{s.conf}%</span>
+      <span style={{ fontSize: 10, color: C.faint, width: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.src}</span>
+      <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: s.up ? C.amber : C.red, width: 40, textAlign: 'right' }}>{s.spike}</span>
+    </div>
+  );
+}
 
-const SOURCES = [
-  { name: 'u/DeepValueDave', platform: 'Reddit', winRate: '74%', calls: 43, grade: 'A', color: 'emerald' },
-  { name: '@OptionsFlow', platform: 'X', winRate: '68%', calls: 127, grade: 'B+', color: 'blue' },
-  { name: 'r/wallstreetbets', platform: 'Reddit', winRate: '61%', calls: 892, grade: 'B', color: 'purple' },
-];
-
-const ALERTS_FEED = [
-  { symbol: 'NVDA', msg: 'Spike detected: +45% mention volume', age: '2m ago' },
-  { symbol: 'PLTR', msg: 'New prediction: $42 target, 2 weeks', age: '5m ago' },
-  { symbol: 'AMD', msg: 'Source alert: u/DeepValueDave posted', age: '11m ago' },
-  { symbol: 'TSLA', msg: 'Spike detected: +23% mention volume', age: '18m ago' },
-  { symbol: 'AAPL', msg: 'Bearish signal: -12% spike confirmed', age: '22m ago' },
-];
-
-const SIDEBAR_TABS = ['Overview', 'Live Signals', 'Predictions', 'Sources', 'Alerts', 'Backtest'];
-
-const URL_MAP: Record<string, string> = {
-  'Overview': 'dashboard',
-  'Live Signals': 'signals',
-  'Predictions': 'predictions',
-  'Sources': 'sources',
-  'Alerts': 'alerts',
-  'Backtest': 'backtest',
+// ── Ticker lookup widget ──────────────────────────────────────────────────────
+const TICKER_DB: Record<string, { dir: string; conf: number; mentions: number; spike: string; up: boolean }> = {
+  NVDA: { dir: 'BULLISH', conf: 92, mentions: 1204, spike: '+45%', up: true },
+  AMD:  { dir: 'BULLISH', conf: 78, mentions: 956,  spike: '+67%', up: true },
+  AAPL: { dir: 'BEARISH', conf: 65, mentions: 623,  spike: '-12%', up: false },
+  TSLA: { dir: 'BULLISH', conf: 84, mentions: 847,  spike: '+23%', up: true },
+  PLTR: { dir: 'BULLISH', conf: 88, mentions: 1103, spike: '+89%', up: true },
+  MSFT: { dir: 'BULLISH', conf: 71, mentions: 542,  spike: '+8%',  up: true },
+  SPY:  { dir: 'NEUTRAL', conf: 58, mentions: 734,  spike: '+15%', up: true },
+  QQQ:  { dir: 'BULLISH', conf: 66, mentions: 489,  spike: '+22%', up: true },
+  COIN: { dir: 'BULLISH', conf: 79, mentions: 889,  spike: '+112%', up: true },
 };
 
-function DashboardMockup() {
-  const [activeTab, setActiveTab] = useState('Live Signals');
-  const [visibleSignals, setVisibleSignals] = useState(ALL_SIGNALS.slice(0, 3));
-  const [alertIdx, setAlertIdx] = useState(0);
-  const [alertVisible, setAlertVisible] = useState(true);
-  const [tickerInput, setTickerInput] = useState('');
-  const [tickerResult, setTickerResult] = useState<{ symbol: string; sentiment: string; confidence: number; mentions: number; spike: string; up: boolean } | null>(null);
+function TickerLookup() {
+  const [val, setVal] = useState('');
+  const [result, setResult] = useState<(typeof TICKER_DB[string] & { symbol: string }) | null>(null);
 
-  const TICKER_DB: Record<string, { sentiment: string; confidence: number; mentions: number; spike: string; up: boolean }> = {
-    NVDA: { sentiment: 'Bullish', confidence: 92, mentions: 1204, spike: '+45%', up: true },
-    AMD: { sentiment: 'Bullish', confidence: 78, mentions: 956, spike: '+67%', up: true },
-    AAPL: { sentiment: 'Bearish', confidence: 65, mentions: 623, spike: '-12%', up: false },
-    TSLA: { sentiment: 'Bullish', confidence: 84, mentions: 847, spike: '+23%', up: true },
-    PLTR: { sentiment: 'Bullish', confidence: 88, mentions: 1103, spike: '+89%', up: true },
-    MSFT: { sentiment: 'Bullish', confidence: 71, mentions: 542, spike: '+8%', up: true },
-    SPY: { sentiment: 'Neutral', confidence: 58, mentions: 734, spike: '+15%', up: true },
-    QQQ: { sentiment: 'Bullish', confidence: 66, mentions: 489, spike: '+22%', up: true },
-  };
-
-  useEffect(() => {
-    if (activeTab !== 'Live Signals') return;
-    const id = setInterval(() => {
-      setVisibleSignals((prev) => {
-        const next = ALL_SIGNALS[(ALL_SIGNALS.indexOf(prev[0]) + 1) % ALL_SIGNALS.length];
-        return [next, ...prev.slice(0, 2)];
-      });
-    }, 2500);
-    return () => clearInterval(id);
-  }, [activeTab]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setAlertVisible(false);
-      setTimeout(() => {
-        setAlertIdx((i) => (i + 1) % ALERTS_FEED.length);
-        setAlertVisible(true);
-      }, 400);
-    }, 3500);
-    return () => clearInterval(id);
-  }, []);
-
-  function handleTickerLookup(e: FormEvent) {
+  function lookup(e: FormEvent) {
     e.preventDefault();
-    const sym = tickerInput.trim().toUpperCase();
-    const data = TICKER_DB[sym];
-    if (data) {
-      setTickerResult({ symbol: sym, ...data });
-    } else {
-      setTickerResult({ symbol: sym, sentiment: 'Low Activity', confidence: 12, mentions: 7, spike: '+1%', up: true });
-    }
+    const sym = val.trim().toUpperCase();
+    const data = TICKER_DB[sym] ?? { dir: 'LOW ACTIVITY', conf: 11, mentions: 4, spike: '+1%', up: true };
+    setResult({ symbol: sym, ...data });
   }
 
-  const alert = ALERTS_FEED[alertIdx];
+  return (
+    <div>
+      <form onSubmit={lookup} style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="text"
+          value={val}
+          onChange={e => { setVal(e.target.value); setResult(null); }}
+          placeholder="Try NVDA, TSLA, COIN..."
+          maxLength={6}
+          style={{
+            flex: 1, background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: 4, padding: '10px 14px',
+            color: '#fff', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+            outline: 'none',
+          }}
+          onFocus={e => (e.target.style.borderColor = C.amber)}
+          onBlur={e => (e.target.style.borderColor = C.border)}
+        />
+        <button type="submit" className="btn-primary" style={{ padding: '10px 18px', flexShrink: 0 }}>Check</button>
+      </form>
+
+      {result && (
+        <div
+          className="animate-fade-up"
+          style={{
+            marginTop: 8, padding: '10px 14px',
+            background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: 4, display: 'flex', alignItems: 'center', gap: 12,
+          }}
+        >
+          <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{result.symbol}</span>
+          <span style={{
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: result.up ? C.green : C.red, background: result.up ? C.greenDim : C.redDim,
+            padding: '2px 6px', borderRadius: 3,
+          }}>{result.dir}</span>
+          <span className="mono" style={{ fontSize: 11, color: C.muted, marginLeft: 'auto' }}>{result.mentions.toLocaleString()} mentions</span>
+          <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: result.up ? C.amber : C.red }}>{result.spike} spike</span>
+          <span className="mono" style={{ fontSize: 11, color: C.faint }}>{result.conf}% conf</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Dashboard mockup ──────────────────────────────────────────────────────────
+const MOCKUP_TABS = ['Live Signals', 'Predictions', 'Sources'] as const;
+type MockupTab = typeof MOCKUP_TABS[number];
+
+const PREDS = [
+  { symbol: 'NVDA', target: '$124.50', tf: '2 wks', conf: 87, analyst: 'u/DeepValueDave', hit: null },
+  { symbol: 'TSLA', target: '$273.00', tf: '1 mo',  conf: 73, analyst: '@SentimentSam',  hit: true },
+  { symbol: 'AMD',  target: '$189.00', tf: '3 wks', conf: 81, analyst: 'r/stocks',        hit: null },
+];
+
+const SRCS = [
+  { name: 'u/DeepValueDave', plat: 'Reddit', wr: '74.1%', calls: 43,  grade: 'A' },
+  { name: '@OptionsFlow',    plat: 'X',      wr: '68.3%', calls: 127, grade: 'B+' },
+  { name: 'r/wallstreetbets',plat: 'Reddit', wr: '61.7%', calls: 892, grade: 'B' },
+];
+
+function DashboardMockup() {
+  const [tab, setTab] = useState<MockupTab>('Live Signals');
+  const [visIdx, setVisIdx] = useState(0);
+
+  useEffect(() => {
+    if (tab !== 'Live Signals') return;
+    const id = setInterval(() => setVisIdx(i => (i + 1) % SIGNALS.length), 3000);
+    return () => clearInterval(id);
+  }, [tab]);
+
+  const visible = [
+    SIGNALS[(visIdx) % SIGNALS.length],
+    SIGNALS[(visIdx + 1) % SIGNALS.length],
+    SIGNALS[(visIdx + 2) % SIGNALS.length],
+  ];
 
   return (
-    <div className="space-y-8">
-      {/* Ticker lookup widget */}
-      <div className="max-w-sm mx-auto">
-        <form onSubmit={handleTickerLookup} className="flex gap-2">
-          <input
-            type="text"
-            value={tickerInput}
-            onChange={(e) => { setTickerInput(e.target.value); setTickerResult(null); }}
-            placeholder="Try NVDA, TSLA, AMD..."
-            className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500 font-mono uppercase"
-            maxLength={6}
-          />
-          <button type="submit" className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-semibold transition-colors">
-            Look up
-          </button>
-        </form>
-        {tickerResult && (
-          <div className="mt-2 bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${tickerResult.up ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{tickerResult.symbol}</span>
-              <span className={`text-sm font-semibold ${tickerResult.up ? 'text-emerald-400' : 'text-red-400'}`}>{tickerResult.sentiment}</span>
+    <div style={{ position: 'relative' }}>
+      {/* Ambient glow */}
+      <div style={{
+        position: 'absolute', inset: '-32px', borderRadius: 24,
+        background: 'radial-gradient(ellipse 70% 50% at 60% 50%, rgba(232,168,74,0.06) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* App shell */}
+      <div style={{
+        position: 'relative', borderRadius: 8,
+        border: `1px solid ${C.borderHi}`,
+        overflow: 'hidden',
+        boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
+      }}>
+        {/* App shell */}
+        <div style={{ background: C.canvas, display: 'flex', height: 320 }}>
+          {/* Sidebar */}
+          <div style={{ width: 148, borderRight: `1px solid ${C.border}`, padding: '12px 8px', flexShrink: 0, background: 'rgba(255,255,255,0.015)' }}>
+            {/* Mini brand */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 12px', borderBottom: `1px solid ${C.border}`, marginBottom: 8 }}>
+              <img src={logoIcon} alt="" style={{ width: 16, height: 16 }} />
+              <span style={{ fontSize: 10, fontWeight: 700, color: C.text, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Street</span>
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-400">
-              <span>{tickerResult.mentions.toLocaleString()} mentions</span>
-              <span className={tickerResult.up ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>{tickerResult.spike} spike</span>
-              <span className="text-gray-600">{tickerResult.confidence}% conf.</span>
-            </div>
+            {(['Live Signals','Predictions','Sources','Alerts','Backtest'] as const).map(item => {
+              const active = item === tab;
+              return (
+                <button
+                  key={item}
+                  onClick={() => setTab(item as MockupTab)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 7,
+                    padding: '7px 8px', borderRadius: 4, border: 'none',
+                    background: active ? C.surfaceHi : 'transparent',
+                    color: active ? '#fff' : C.muted,
+                    fontSize: 11, fontWeight: active ? 600 : 400,
+                    cursor: 'pointer', textAlign: 'left', marginBottom: 1,
+                    fontFamily: "'Geist', system-ui, sans-serif",
+                    transition: 'background 0.12s ease, color 0.12s ease',
+                  }}
+                >
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: active ? C.amber : 'rgba(255,255,255,0.15)', flexShrink: 0, transition: 'background 0.12s ease' }} />
+                  {item}
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
 
-      <div className="relative mx-auto max-w-4xl">
-        {/* Glow */}
-        <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-transparent to-purple-500/5 blur-2xl pointer-events-none" />
-
-        {/* Browser chrome */}
-        <div className="relative rounded-2xl overflow-hidden border border-gray-700/60 shadow-2xl shadow-black/40">
-          {/* Title bar */}
-          <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-500/70" />
-              <div className="w-3 h-3 rounded-full bg-amber-500/70" />
-              <div className="w-3 h-3 rounded-full bg-green-500/70" />
-            </div>
-            <div className="flex-1 max-w-xs mx-auto bg-gray-800 rounded px-3 py-1 text-xs text-gray-400 text-center font-mono">
-              app.getstreetinsights.com/{URL_MAP[activeTab] ?? 'signals'}
-            </div>
-          </div>
-
-          {/* App */}
-          <div className="bg-gray-950 flex h-80">
-            {/* Sidebar */}
-            <div className="w-44 bg-gray-900 border-r border-gray-800 p-3 space-y-1 shrink-0">
-              {SIDEBAR_TABS.map((item) => {
-                const active = item === activeTab;
-                return (
-                  <button
-                    key={item}
-                    onClick={() => setActiveTab(item)}
-                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-xs font-medium transition-colors text-left ${active ? 'bg-emerald-500/10 text-emerald-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'}`}
-                  >
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-emerald-400' : 'bg-gray-700'}`} />
-                    {item}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 p-4 overflow-hidden">
-              {/* Live Signals tab */}
-              {activeTab === 'Live Signals' && (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-white">Live Signals</h3>
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                      </span>
-                      Live
-                    </div>
+          {/* Main pane */}
+          <div style={{ flex: 1, padding: 14, overflow: 'hidden' }}>
+            {tab === 'Live Signals' && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>Live signals</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: C.green }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.green, animation: 'pulse-dot 1.5s ease-in-out infinite' }} />
+                    Scanning
                   </div>
-                  <div className="space-y-2">
-                    {visibleSignals.map((s, idx) => (
-                      <div key={`${s.symbol}-${idx}`} className="bg-gray-900 border border-gray-800 rounded-lg p-3 flex items-center gap-3">
-                        <div className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${s.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                          {s.symbol}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-medium ${s.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}`}>{s.sentiment}</span>
-                            <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full transition-all duration-700 ${s.color === 'emerald' ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${s.confidence}%` }} />
-                            </div>
-                            <span className="text-xs text-gray-500">{s.confidence}%</span>
-                          </div>
-                          <p className="text-[10px] text-gray-600 truncate mt-0.5">{s.source} · {s.mentions} mentions</p>
-                        </div>
-                        <div className="flex flex-col items-end shrink-0 gap-0.5">
-                          <span className={`text-xs font-semibold ${s.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}`}>{s.spike}</span>
-                          <span className="text-[10px] text-gray-700">{s.age} ago</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Predictions tab */}
-              {activeTab === 'Predictions' && (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-white">AI-Extracted Predictions</h3>
-                    <span className="text-[10px] text-gray-500">Updated 1m ago</span>
-                  </div>
-                  <div className="space-y-2">
-                    {PREDICTIONS.map((p) => (
-                      <div key={p.symbol} className="bg-gray-900 border border-gray-800 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded">{p.symbol}</span>
-                            <span className="text-xs text-white font-semibold">{p.target}</span>
-                            <span className="text-[10px] text-gray-600">in {p.timeframe}</span>
-                          </div>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${p.outcome === 'hit' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-700 text-gray-400'}`}>
-                            {p.outcome === 'hit' ? '✓ Hit' : 'Pending'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${p.confidence}%` }} />
-                          </div>
-                          <span className="text-[10px] text-gray-500">{p.confidence}%</span>
-                          <span className="text-[10px] text-gray-700 truncate max-w-24">{p.analyst}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Sources tab */}
-              {activeTab === 'Sources' && (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-white">Source Leaderboard</h3>
-                    <span className="text-[10px] text-gray-500">By win rate</span>
-                  </div>
-                  <div className="space-y-2">
-                    {SOURCES.map((s, i) => (
-                      <div key={s.name} className="bg-gray-900 border border-gray-800 rounded-lg p-3 flex items-center gap-3">
-                        <span className="text-xs font-black text-gray-600 w-4 shrink-0">#{i + 1}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-white truncate">{s.name}</p>
-                          <p className="text-[10px] text-gray-600">{s.platform} · {s.calls} calls</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${s.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-400' : s.color === 'blue' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>{s.grade}</span>
-                          <span className="text-xs text-gray-300">{s.winRate}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Alerts tab */}
-              {activeTab === 'Alerts' && (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-white">Alert Feed</h3>
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                      </span>
-                      Live
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {ALERTS_FEED.map((a, i) => (
-                      <div key={i} className={`bg-gray-900 border rounded-lg px-3 py-2 flex items-center gap-2.5 transition-opacity ${i === 0 ? 'border-emerald-800/50' : 'border-gray-800 opacity-60'}`}>
-                        <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded shrink-0">{a.symbol}</span>
-                        <span className="text-[11px] text-gray-300 flex-1 truncate">{a.msg}</span>
-                        <span className="text-[10px] text-gray-700 shrink-0">{a.age}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Overview and Backtest: fallback */}
-              {(activeTab === 'Overview' || activeTab === 'Backtest') && (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                    <span className="text-lg">{activeTab === 'Backtest' ? '📊' : '👁'}</span>
-                  </div>
-                  <p className="text-sm font-semibold text-white">{activeTab}</p>
-                  <p className="text-xs text-gray-600 max-w-40">Click Live Signals, Predictions, Sources, or Alerts to explore the dashboard.</p>
                 </div>
-              )}
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {visible.map((s, idx) => <SignalRow key={`${s.symbol}-${visIdx}-${idx}`} s={s} delay={idx * 60} />)}
+                </div>
+              </>
+            )}
+
+            {tab === 'Predictions' && (
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>AI-extracted predictions</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {PREDS.map(p => (
+                    <div key={p.symbol} className="animate-fade-up" style={{ padding: '9px 12px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 10, fontSize: 11 }}>
+                      <span className="mono" style={{ fontWeight: 700, color: '#fff', width: 38, fontSize: 11, letterSpacing: '0.03em' }}>{p.symbol}</span>
+                      <span className="mono" style={{ color: C.amber, fontWeight: 600 }}>{p.target}</span>
+                      <span style={{ color: C.faint, fontSize: 10 }}>in {p.tf}</span>
+                      <div style={{ flex: 1, height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 1 }}>
+                        <div style={{ height: '100%', width: `${p.conf}%`, background: 'rgba(99,179,237,0.6)', borderRadius: 1 }} />
+                      </div>
+                      <span className="mono" style={{ fontSize: 10, color: C.muted }}>{p.conf}%</span>
+                      <span style={{ fontSize: 10, color: C.faint, maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.analyst}</span>
+                      {p.hit !== null ? (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: C.green, background: C.greenDim, padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Hit</span>
+                      ) : (
+                        <span style={{ fontSize: 9, fontWeight: 500, color: C.muted, background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Open</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {tab === 'Sources' && (
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>Source leaderboard</span>
+                  <span style={{ fontSize: 10, color: C.muted, marginLeft: 8 }}>by win rate</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {SRCS.map((s, i) => (
+                    <div key={s.name} className="animate-fade-up" style={{ padding: '9px 12px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 10, fontSize: 11 }}>
+                      <span className="mono" style={{ fontSize: 10, color: C.faint, width: 16 }}>#{i+1}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, color: '#fff', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>{s.name}</p>
+                        <p style={{ fontSize: 9, color: C.faint }}>{s.plat} · {s.calls} calls</p>
+                      </div>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, color: C.amber,
+                        background: C.amberDim, padding: '2px 7px', borderRadius: 3,
+                      }}>{s.grade}</span>
+                      <span className="mono" style={{ fontSize: 11, color: C.text }}>{s.wr}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {(tab as string) === 'Alerts' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 6, background: C.amberDim, border: `1px solid rgba(232,168,74,0.2)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                </div>
+                <p style={{ fontSize: 12, fontWeight: 500, color: C.text }}>Alert feed</p>
+                <p style={{ fontSize: 10, color: C.faint, textAlign: 'center', maxWidth: 160 }}>Real-time notifications when signals fire.</p>
+              </div>
+            )}
+            {(tab as string) === 'Backtest' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(99,179,237,0.08)', border: '1px solid rgba(99,179,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(99,179,237,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </div>
+                <p style={{ fontSize: 12, fontWeight: 500, color: C.text }}>Strategy backtest</p>
+                <p style={{ fontSize: 10, color: C.faint, textAlign: 'center', maxWidth: 160 }}>Test signal quality against historical price action.</p>
+              </div>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Floating alert badge — animates */}
-        <div
-          className={`absolute -top-4 -right-4 md:-right-8 bg-gray-900 border border-gray-700 rounded-xl shadow-xl px-3 py-2.5 flex items-center gap-2.5 transition-all duration-300 ${alertVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
-        >
-          <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 text-sm">
-            🚨
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-white">Alert: {alert.symbol}</p>
-            <p className="text-[10px] text-gray-400">{alert.msg.replace(/^[^:]+: /, '')} · {alert.age}</p>
-          </div>
+      {/* Floating alert badge */}
+      <div style={{
+        position: 'absolute', top: -12, right: -12,
+        background: C.canvas, border: `1px solid rgba(232,168,74,0.3)`,
+        borderRadius: 6, padding: '8px 12px',
+        display: 'flex', alignItems: 'center', gap: 8,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        zIndex: 10,
+      }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.amber, animation: 'pulse-dot 1.5s ease-in-out infinite', flexShrink: 0 }} />
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 700, color: '#fff', marginBottom: 1 }}>NVDA spike: +45%</p>
+          <p style={{ fontSize: 9, color: C.muted }}>mention velocity alert · 2m ago</p>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
-export function Landing() {
+// ── Icon components (no external dependency) ─────────────────────────────────
+function IconScan() {
   return (
-    <div className="min-h-screen bg-gray-950 text-white antialiased" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <style>{`
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-      `}</style>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M9 12H3M21 12h-6M12 3v6M12 15v6"/>
+    </svg>
+  );
+}
+function IconTrophy() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+      <path d="M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>
+    </svg>
+  );
+}
+function IconBrain() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2z"/>
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2z"/>
+    </svg>
+  );
+}
 
-      {/* Nav */}
-      <nav className="fixed top-0 w-full bg-gray-950/90 backdrop-blur-sm border-b border-gray-800 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
-          <div className="flex items-center gap-2.5">
-            <img src={logoIcon} alt="" className="h-8 w-auto" />
-            <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-tight uppercase">Street Insights</span>
-              <span className="text-[10px] text-gray-400 tracking-wider uppercase">Boxford Partners</span>
-            </div>
-          </div>
-          <div className="hidden sm:flex items-center gap-6">
-            <a href="#features" className="text-sm text-gray-300 hover:text-white transition-colors">Features</a>
-            <a href="#how-it-works" className="text-sm text-gray-300 hover:text-white transition-colors">How It Works</a>
-            <Link to="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">Pricing</Link>
-            <Link to="/demo" className="text-sm text-gray-300 hover:text-white transition-colors">Demo</Link>
-            <Link to="/login" className="text-sm text-gray-300 hover:text-white transition-colors">Sign In</Link>
-            <Link to="/sign-up" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-semibold transition-colors">
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </nav>
+// ── Counter ───────────────────────────────────────────────────────────────────
+function Counter({ end, suffix = '' }: { end: number; suffix?: string }) {
+  const [n, setN] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    const run = () => {
+      if (started.current) return;
+      started.current = true;
+      const dur = 2000, t0 = performance.now();
+      const step = (now: number) => {
+        const p = Math.min((now - t0) / dur, 1);
+        setN(Math.floor((1 - Math.pow(1 - p, 3)) * end));
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) run(); }, { threshold: 0 });
+    if (ref.current) obs.observe(ref.current);
+    const fb = setTimeout(run, 600);
+    return () => { obs.disconnect(); clearTimeout(fb); };
+  }, [end]);
+  return <span ref={ref} style={{ fontVariantNumeric: 'tabular-nums' }}>{n.toLocaleString()}{suffix}</span>;
+}
 
-      {/* Hero */}
-      <section className="pt-32 pb-16 px-4 text-center">
-        <div className="max-w-7xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm text-emerald-400 mb-8">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            Now tracking sentiment across Reddit, X, and financial news
-          </div>
+// ── Footer ───────────────────────────────────────────────────────────────────
+// Structure: Boxford Partners framework (brand+newsletter 2-col, Products/Company/Legal)
+// Colors: Street Insights token system throughout — C.canvas, C.amber, C.border, C.muted
 
-          <h1 style={{ fontSize: 'clamp(2.8rem, 7vw, 4.5rem)', fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.02em' }}>
-            Know What the Market<br />
-            <span style={{ color: '#34d399' }}>is Thinking</span>
-          </h1>
+function FooterSection() {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle');
 
-          <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto">
-            Real-time stock sentiment tracking powered by AI. Get alerts on mention spikes,
-            high-confidence predictions, and credibility-ranked sources, before the market moves.
-          </p>
+  async function handleSubscribe(e: FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setStatus('loading');
+    await new Promise(r => setTimeout(r, 600));
+    setStatus('done');
+    setEmail('');
+    setTimeout(() => setStatus('idle'), 3000);
+  }
 
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              to="/sign-up"
-              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-semibold text-lg transition-colors shadow-lg shadow-emerald-600/20"
-            >
-              Get Early Access
-            </Link>
-            <Link
-              to="/demo"
-              className="px-8 py-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg font-semibold text-lg transition-colors"
-            >
-              🎬 Watch Demo
-            </Link>
-          </div>
-          <p className="mt-4 text-sm text-gray-500">No credit card required</p>
-        </div>
-      </section>
+  const colLabel = (text: string) => (
+    <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: C.faint, marginBottom: 16 }}>{text}</p>
+  );
 
-      {/* Ticker */}
-      <TickerBar />
+  const colLink = (href: string, label: string, external = false, active = false) => (
+    <a
+      key={label}
+      href={href}
+      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      style={{ fontSize: 13, color: active ? C.amber : C.muted, textDecoration: 'none', display: 'block', marginBottom: 10, fontWeight: active ? 500 : 400 }}
+      onMouseEnter={e => (e.currentTarget.style.color = active ? C.amber : 'rgba(255,255,255,0.85)')}
+      onMouseLeave={e => (e.currentTarget.style.color = active ? C.amber : C.muted)}
+    >{label}</a>
+  );
 
-      {/* Problem */}
-      <section className="py-20 px-4 bg-gray-900/40">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-            Social sentiment moves markets.
-          </h2>
-          <p className="text-center text-gray-400 text-lg mb-12">Most investors see it too late.</p>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { icon: '⚠️', color: 'red', title: 'Noise Everywhere', desc: 'Reddit, X, Discord, news, scattered signals across dozens of sources.' },
-              { icon: '🔍', color: 'orange', title: 'Who to Trust?', desc: 'Every source claims conviction. No way to verify track records.' },
-              { icon: '⏰', color: 'yellow', title: 'Always Behind', desc: 'By the time you notice the spike, the move already happened.' },
-            ].map((item) => (
-              <div key={item.title} className="p-6 bg-gray-800/50 border border-gray-700 rounded-xl">
-                <div className="text-3xl mb-3">{item.icon}</div>
-                <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+  return (
+    <footer style={{ background: C.canvas, borderTop: `1px solid ${C.border}` }}>
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '56px 24px 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '40px 48px' }}>
 
-      {/* Stats */}
-      <section className="py-16 px-4 bg-gray-950 border-y border-gray-800">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-500 text-center mb-2">Trusted by Signal Hunters</p>
-          <p className="text-center text-gray-400 text-sm mb-10">Processing thousands of data points every minute</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-            {[
-              { end: 50000, suffix: '+', label: 'Mentions Tracked Daily' },
-              { end: 92, suffix: '%', label: 'Prediction Accuracy' },
-              { end: 15, suffix: 's', label: 'Average Alert Speed' },
-              { end: 500, suffix: '+', label: 'Sources Monitored' },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="text-3xl md:text-4xl font-black text-white tabular-nums">
-                  <Counter end={stat.end} suffix={stat.suffix} />
-                </p>
-                <p className="text-sm text-gray-400 mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Dashboard preview */}
-      <section className="py-20 px-4">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-500 mb-3">The Dashboard</p>
-            <h2 className="text-3xl md:text-4xl font-bold">Signals. Context. Action.</h2>
-            <p className="mt-4 text-gray-400 max-w-xl mx-auto">Every spike, prediction, and credibility score in one unified view.</p>
-          </div>
-          <DashboardMockup />
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section id="how-it-works" className="py-20 px-4 bg-gray-900/40">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-16">How It Works</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { n: '1', color: 'bg-emerald-600', title: 'We Scan', desc: 'Continuous scrapes across Reddit, X, and financial news. Extract tickers, sentiment, and predictions in real time.' },
-              { n: '2', color: 'bg-purple-600', title: 'AI Analyzes', desc: 'Grok scores reasoning quality and confidence. Validates predictions against outcomes to build credibility scores.' },
-              { n: '3', color: 'bg-blue-600', title: 'You Get Alerts', desc: 'Instant notifications when spikes happen or high-confidence predictions emerge. No noise, only what matters.' },
-            ].map((step) => (
-              <div key={step.n} className="text-center">
-                <div className={`w-14 h-14 ${step.color} rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-5`}>{step.n}</div>
-                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-10">
-            <Link to="/demo" className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 text-sm font-medium transition-colors">
-              See it in action →
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl sm:text-5xl font-bold mb-4">Built for Signal Hunters</h2>
-            <p className="text-xl text-gray-400">Every feature designed to surface alpha before the crowd notices.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                color: 'from-emerald-600 to-cyan-600',
-                icon: '🚨',
-                title: 'Real-Time Spike Detection',
-                desc: 'Instant alerts when mention frequency spikes above baseline. Customizable thresholds per ticker.',
-                bullets: ['Monitoring across Reddit, X, news', 'Volume spike analysis', 'Custom thresholds per ticker', 'Daily digest + instant alerts'],
-                bulletColor: 'text-emerald-500',
-              },
-              {
-                color: 'from-blue-600 to-indigo-600',
-                icon: '🏆',
-                title: 'Source Credibility Rankings',
-                desc: 'Track record verification for every account. Know who actually has alpha vs. who just has followers.',
-                bullets: ['Win rate, accuracy, average return', 'Reasoning quality metrics', 'Leaderboard by platform', 'Filter by verified track records'],
-                bulletColor: 'text-blue-500',
-              },
-              {
-                color: 'from-purple-600 to-pink-600',
-                icon: '🧠',
-                title: 'AI-Powered Analysis',
-                desc: 'Grok AI extracts predictions with price targets, timeframes, and confidence scores using proven frameworks.',
-                bullets: ['Lynch/Munger quality scoring', 'Data discipline analysis', 'Automatic outcome validation', 'High-confidence signals only'],
-                bulletColor: 'text-purple-500',
-              },
-            ].map((f) => (
-              <div key={f.title} className="relative">
-                <div className={`absolute -inset-0.5 bg-gradient-to-r ${f.color} rounded-2xl blur opacity-15`} />
-                <div className="relative p-7 bg-gray-900 border border-gray-800 rounded-2xl h-full">
-                  <div className="text-4xl mb-4">{f.icon}</div>
-                  <h3 className="text-xl font-bold mb-3">{f.title}</h3>
-                  <p className="text-gray-400 text-sm mb-4 leading-relaxed">{f.desc}</p>
-                  <ul className="space-y-2">
-                    {f.bullets.map((b) => (
-                      <li key={b} className="flex items-start gap-2 text-sm text-gray-300">
-                        <svg className={`w-4 h-4 ${f.bulletColor} mt-0.5 shrink-0`} fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        {b}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-20 px-4 bg-gray-900/40">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-500 mb-3">Early Access Users</p>
-            <h2 className="text-3xl md:text-4xl font-bold">Getting ahead of the crowd</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                quote: "I caught the NVDA spike 20 minutes before it hit $5. The mention velocity alert fired while everyone else was still reading headlines. This is the edge I was looking for.",
-                name: "Jordan K.",
-                role: "Options trader, 6 years",
-                avatar: "JK",
-                gradient: "from-emerald-500 to-teal-600",
-              },
-              {
-                quote: "The source credibility rankings are invaluable. I used to waste time on accounts with 50k followers who were consistently wrong. Now I filter for people who have actual track records.",
-                name: "Marcus T.",
-                role: "Swing trader, r/stocks",
-                avatar: "MT",
-                gradient: "from-blue-500 to-indigo-600",
-              },
-              {
-                quote: "Set up a custom alert for $PLTR with a 2x spike threshold. Got a notification at 6 AM before market open. Opened a position, closed it same day up 4.2%. ROI on the subscription: infinite.",
-                name: "Priya S.",
-                role: "Retail investor",
-                avatar: "PS",
-                gradient: "from-purple-500 to-pink-600",
-              },
-            ].map((t) => (
-              <div key={t.name} className="p-6 bg-gray-800/50 border border-gray-700 rounded-2xl flex flex-col">
-                <p className="text-gray-300 text-sm leading-relaxed flex-1 mb-5">"{t.quote}"</p>
-                <div className="flex items-center gap-3 pt-4 border-t border-gray-700">
-                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${t.gradient} flex items-center justify-center text-xs font-bold shrink-0`}>
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{t.name}</p>
-                    <p className="text-xs text-gray-500">{t.role}</p>
-                  </div>
-                  <div className="ml-auto flex gap-0.5">
-                    {[1,2,3,4,5].map(s => <span key={s} className="text-amber-400 text-xs">★</span>)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Infrastructure */}
-      <section className="py-16 px-4 bg-gray-950 border-y border-gray-800">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-6">Trusted Infrastructure</p>
-          <h2 className="text-2xl font-bold mb-2">Powered by Industry Leaders</h2>
-          <p className="text-gray-400 text-sm mb-8">Built on best-in-class data sources and AI technology</p>
-          <div className="flex flex-wrap justify-center gap-6">
-            {[
-              { icon: '🔴', name: 'Reddit', label: 'Social sentiment' },
-              { icon: '𝕏', name: 'X (Twitter)', label: 'Real-time feeds' },
-              { icon: '📊', name: 'Alpha Vantage', label: 'Market data' },
-              { icon: '🤖', name: 'xAI Grok', label: 'AI analysis' },
-            ].map((s) => (
-              <div key={s.name} className="flex flex-col items-center gap-2 px-5 py-4 bg-gray-900 border border-gray-800 rounded-xl min-w-28">
-                <span className="text-2xl">{s.icon}</span>
-                <span className="text-sm font-semibold text-white">{s.name}</span>
-                <span className="text-xs text-gray-500">{s.label}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-center gap-6 mt-8 text-sm text-gray-500">
-            <span>✓ 256-bit encryption</span>
-            <span>✓ 99.9% uptime</span>
-            <span>✓ Real-time processing</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section className="py-20 px-4">
-        <div className="max-w-lg mx-auto text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-500 mb-3">Simple Pricing</p>
-          <h2 className="text-3xl font-bold mb-2">Know Before You Commit</h2>
-          <p className="text-gray-400 mb-8">Transparent pricing with no hidden fees</p>
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8">
-            <div className="text-5xl font-black text-white mb-1">$29<span className="text-xl font-normal text-gray-400">/month</span></div>
-            <p className="text-gray-400 mb-6 text-sm">Everything you need to stay ahead of market sentiment</p>
-            <ul className="space-y-3 text-left mb-8">
-              {[
-                'Early access pricing available now',
-                'Early access pricing locked for life',
-                'Cancel anytime, no long-term contracts',
-                'All features included',
-              ].map((item) => (
-                <li key={item} className="flex items-center gap-3 text-sm text-gray-300">
-                  <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link
-              to="/sign-up"
-              className="block w-full py-3 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-semibold transition-colors text-center"
-            >
-              Reserve Your Spot
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="py-20 px-4 bg-gray-900/40">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-10">Frequently Asked Questions</h2>
-          <div className="space-y-4">
-            {[
-              {
-                q: "How is this different from just following FinTwit?",
-                a: "Street Insights tracks sentiment across Reddit, X, Discord, and financial news simultaneously. We provide credibility scoring based on track records, automated spike detection, and AI-powered prediction extraction. Instead of manually scrolling, you get verified signals with context.",
-              },
-              {
-                q: "What platforms do you track?",
-                a: "We monitor Reddit (r/wallstreetbets, r/stocks, r/investing), X (formerly Twitter), financial news sites, and Discord communities. We continuously add new sources based on user feedback.",
-              },
-              {
-                q: "How accurate are the predictions?",
-                a: "Our AI doesn't make predictions, it extracts and evaluates predictions made by others. The 92% accuracy stat refers to our ability to identify whether extracted predictions came true. We track every source's historical accuracy so you can decide who to trust.",
-              },
-              {
-                q: "Do you provide financial advice?",
-                a: "No. Street Insights is a market intelligence tool that surfaces sentiment data and tracks prediction accuracy. We do not provide investment recommendations. All decisions are yours to make.",
-              },
-              {
-                q: "Can I cancel anytime?",
-                a: "Yes. No long-term contracts or cancellation fees. You retain access through the end of your billing period.",
-              },
-            ].map((faq, i) => (
-              <details key={i} className="group bg-gray-900 border border-gray-800 rounded-xl">
-                <summary className="flex items-center justify-between px-5 py-4 cursor-pointer text-sm font-medium list-none">
-                  {faq.q}
-                  <span className="text-gray-500 group-open:rotate-180 transition-transform shrink-0 ml-3">↓</span>
-                </summary>
-                <div className="px-5 pb-4 text-sm text-gray-400 leading-relaxed border-t border-gray-800 pt-3">
-                  {faq.a}
-                </div>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="py-20 px-4">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-4xl sm:text-5xl font-bold mb-4">Get ahead of the market.</h2>
-          <p className="text-xl text-gray-400 mb-8">
-            Join traders using Street Insights to catch spikes before they make headlines.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/sign-up"
-              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-semibold text-lg transition-colors shadow-lg shadow-emerald-600/20"
-            >
-              Get Started
-            </Link>
-            <Link
-              to="/demo"
-              className="px-8 py-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg font-semibold text-lg transition-colors"
-            >
-              🎬 Watch Demo
-            </Link>
-          </div>
-          <p className="mt-4 text-sm text-gray-500">No credit card required · Cancel anytime</p>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-gray-800 bg-gray-950 py-12 px-4">
-        <div className="max-w-7xl mx-auto grid gap-8 md:grid-cols-4 text-sm">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-              <span className="font-bold">Street Insights</span>
-            </div>
-            <a href="https://www.boxfordpartners.com" target="_blank" rel="noopener noreferrer" className="inline-block text-[10px] font-semibold uppercase tracking-widest text-gray-600 border border-gray-800 rounded px-2 py-1 hover:text-gray-400 transition-colors mb-3">
-              A Boxford Partners Company
+          {/* Brand + newsletter */}
+          <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
+            <a href="https://www.boxfordpartners.com" target="_blank" rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'baseline', marginBottom: 12, textDecoration: 'none' }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.88)', letterSpacing: '-0.01em' }}>BOXFORD</span>
+              <span style={{ fontSize: 13, fontWeight: 300, color: C.muted, letterSpacing: '0.01em' }}>partners</span>
             </a>
-            <p><a href="mailto:hello@getstreetinsights.com" className="text-gray-500 hover:text-gray-300 transition-colors">hello@getstreetinsights.com</a></p>
+            <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.65, maxWidth: 260, marginBottom: 20, textWrap: 'pretty' } as React.CSSProperties}>
+              Product studio for service and B2B companies. Street Insights is one of our tools.
+            </p>
+
+            <p style={{ fontSize: 13, fontWeight: 500, color: C.text, marginBottom: 8 }}>Weekly product insights</p>
+            <form onSubmit={handleSubscribe} style={{ display: 'flex', gap: 8, maxWidth: 320 }}>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                disabled={status !== 'idle'}
+                style={{
+                  flex: 1, minWidth: 0,
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 4, padding: '8px 12px',
+                  fontSize: 13, color: C.text,
+                  fontFamily: "'Geist', system-ui, sans-serif",
+                  outline: 'none',
+                  transition: 'border-color 0.12s ease',
+                }}
+                onFocus={e => (e.target.style.borderColor = C.amber)}
+                onBlur={e => (e.target.style.borderColor = C.border)}
+              />
+              <button
+                type="submit"
+                disabled={status !== 'idle'}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                  background: status === 'done' ? C.amberDim : C.amber,
+                  color: status === 'done' ? C.amber : '#0a0700',
+                  border: 'none', borderRadius: 4,
+                  padding: '8px 14px', fontSize: 13, fontWeight: 600,
+                  fontFamily: "'Geist', system-ui, sans-serif",
+                  cursor: status !== 'idle' ? 'default' : 'pointer',
+                  opacity: status === 'loading' ? 0.6 : 1,
+                  transition: 'background 0.15s ease, opacity 0.15s ease',
+                }}
+                onMouseEnter={e => { if (status === 'idle') (e.currentTarget as HTMLButtonElement).style.background = '#f0b455'; }}
+                onMouseLeave={e => { if (status === 'idle') (e.currentTarget as HTMLButtonElement).style.background = C.amber; }}
+              >
+                {status === 'loading' ? '...' : status === 'done' ? 'Subscribed' : (
+                  <>Subscribe <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 6h7M6.5 3l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></>
+                )}
+              </button>
+            </form>
+            <p style={{ marginTop: 8, fontSize: 11, color: C.faint }}>No spam. Unsubscribe anytime.</p>
           </div>
+
+          {/* Products */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Product</h4>
-            <ul className="space-y-2 text-gray-400">
-              <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-              <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-              <li><a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a></li>
-              <li><Link to="/demo" className="hover:text-white transition-colors">Demo</Link></li>
-            </ul>
+            {colLabel('Products')}
+            {colLink('https://reviewsniper.app/', 'reviewSNIPER', true)}
+            {colLink('https://gravitasindex.com/', 'Gravitas Index', true)}
+            {colLink('https://getstreetinsights.com/', 'Street Insights', false, true)}
+            {colLink('https://www.boxfordpartners.com/labs', 'All products', true)}
           </div>
+
+          {/* Company */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Company</h4>
-            <ul className="space-y-2 text-gray-400">
-              <li><a href="https://www.boxfordpartners.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Boxford Partners</a></li>
-              <li><a href="mailto:hello@getstreetinsights.com" className="hover:text-white transition-colors">Support</a></li>
-            </ul>
+            {colLabel('Company')}
+            {colLink('https://www.boxfordpartners.com/about', 'About', true)}
+            {colLink('https://www.boxfordpartners.com/services', 'Services', true)}
+            {colLink('https://www.boxfordpartners.com/academy', 'Academy', true)}
+            {colLink('mailto:hello@getstreetinsights.com', 'Contact')}
           </div>
+
+          {/* Legal */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Legal</h4>
-            <ul className="space-y-2 text-gray-400">
-              <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-            </ul>
+            {colLabel('Legal')}
+            {colLink('/privacy', 'Privacy')}
+            {colLink('/terms', 'Terms')}
+            {colLink('https://www.boxfordpartners.com/acceptable-use', 'Acceptable use', true)}
           </div>
         </div>
-        <div className="max-w-7xl mx-auto mt-10 pt-6 border-t border-gray-900 flex items-center justify-between">
-          <p className="text-xs text-gray-600">© {new Date().getFullYear()} Boxford Partners LLC DBA STREET INSIGHTS. All rights reserved.</p>
-          <a
-            href="https://www.linkedin.com/company/boxfordpartners"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Bottom bar */}
+        <div style={{
+          marginTop: 48, paddingTop: 20, paddingBottom: 24,
+          borderTop: `1px solid ${C.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+        }}>
+          <p style={{ fontSize: 11, color: C.faint }}>
+            &copy; {new Date().getFullYear()} Boxford Partners LLC. Street Insights is not financial advice.
+          </p>
+          <a href="https://www.linkedin.com/company/boxfordpartners" target="_blank" rel="noopener noreferrer"
             aria-label="Boxford Partners on LinkedIn"
-            className="text-gray-700 hover:text-gray-500 transition-colors"
+            style={{ color: C.faint, textDecoration: 'none', transition: 'color 0.12s ease' }}
+            onMouseEnter={e => (e.currentTarget.style.color = C.muted)}
+            onMouseLeave={e => (e.currentTarget.style.color = C.faint)}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
             </svg>
           </a>
         </div>
-      </footer>
+      </div>
+    </footer>
+  );
+}
+
+// ── Main Landing ──────────────────────────────────────────────────────────────
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": featuredFaqs.map((faq) => ({
+    "@type": "Question",
+    "name": faq.question,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": faq.answer,
+    },
+  })),
+};
+
+export function Landing() {
+  return (
+    <div style={{ minHeight: '100vh', background: C.canvas, color: C.text, fontFamily: "'Geist', system-ui, sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+      <style>{GLOBAL_CSS}</style>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+
+      {/* Skip to content */}
+      <a href="#main-content" style={{ position: 'absolute', left: -9999, top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>Skip to main content</a>
+
+      {/* ── Nav ── */}
+      <nav style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+        background: 'rgba(8,10,13,0.88)', backdropFilter: 'blur(12px)',
+        borderBottom: `1px solid ${C.border}`,
+        padding: '0 24px', height: 56,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src={logoIcon} alt="" style={{ height: 26, width: 'auto' }} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em', color: '#fff', lineHeight: 1.2 }}>Street Insights</div>
+            <div style={{ fontSize: 9, color: C.muted, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1 }}>by Boxford Partners</div>
+          </div>
+        </div>
+
+        <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          {[['#features','Features'],['#how-it-works','How it works']].map(([href, label]) => (
+            <a key={href} href={href} style={{ fontSize: 13, color: C.muted, textDecoration: 'none', transition: 'color 0.12s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+              onMouseLeave={e => (e.currentTarget.style.color = C.muted)}>{label}</a>
+          ))}
+          <Link to="/blog" style={{ fontSize: 13, color: C.muted, textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+            onMouseLeave={e => (e.currentTarget.style.color = C.muted)}>Blog</Link>
+          <Link to="/faq" style={{ fontSize: 13, color: C.muted, textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+            onMouseLeave={e => (e.currentTarget.style.color = C.muted)}>FAQ</Link>
+          <Link to="/pricing" style={{ fontSize: 13, color: C.muted, textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+            onMouseLeave={e => (e.currentTarget.style.color = C.muted)}>Pricing</Link>
+          <Link to="/login" style={{ fontSize: 13, color: C.muted, textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+            onMouseLeave={e => (e.currentTarget.style.color = C.muted)}>Sign in</Link>
+          <Link to="/sign-up" className="btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}>Get access</Link>
+        </div>
+
+        <Link to="/sign-up" className="btn-primary hide-desktop" style={{ padding: '8px 14px', fontSize: 12 }}>Get access</Link>
+      </nav>
+
+      {/* ── Hero ── */}
+      <section id="main-content" className="grid-bg" style={{ paddingTop: 56, minHeight: '92vh', display: 'flex', alignItems: 'center' }}>
+        {/* Radial glow centered on right */}
+        <div style={{
+          position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse 60% 70% at 75% 50%, rgba(232,168,74,0.05) 0%, transparent 60%)',
+        }} />
+
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '80px 24px', width: '100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 64, alignItems: 'center', position: 'relative' }}>
+
+          {/* Left: Copy */}
+          <div>
+            <div className="animate-fade-up section-label">Market intelligence</div>
+
+            <h1 className="animate-fade-up animate-fade-up-1" style={{
+              fontSize: 'clamp(36px, 5.5vw, 60px)',
+              fontWeight: 700, lineHeight: 1.05,
+              letterSpacing: '-0.032em', color: '#fff',
+              textWrap: 'balance', marginBottom: 20,
+            }}>
+              Track what the street is<br />
+              <span style={{ color: C.amber }}>actually saying</span>
+            </h1>
+
+            <p className="animate-fade-up animate-fade-up-2" style={{
+              fontSize: 17, lineHeight: 1.65, color: C.muted,
+              maxWidth: 440, marginBottom: 32, textWrap: 'pretty',
+            }}>
+              Mention spike detection, AI-extracted predictions, and source credibility scores across Reddit, X, and financial news, before the move happens.
+            </p>
+
+            <div className="animate-fade-up animate-fade-up-3" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
+              <Link to="/sign-up" className="btn-primary" style={{ fontSize: 15, padding: '13px 26px' }}>Start free trial</Link>
+              <Link to="/demo" className="btn-ghost" style={{ fontSize: 15, padding: '13px 26px' }}>View demo</Link>
+            </div>
+
+            <div className="animate-fade-up animate-fade-up-3" style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              {[
+                { stat: '15 min', label: 'scan cadence' },
+                { stat: '500+', label: 'sources tracked' },
+                { stat: 'AI', label: 'prediction scoring' },
+              ].map(({ stat, label }) => (
+                <div key={label}>
+                  <div className="mono" style={{ fontSize: 16, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>{stat}</div>
+                  <div style={{ fontSize: 11, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: Dashboard mockup */}
+          <div className="animate-fade-up animate-fade-up-2" style={{ position: 'relative' }}>
+            {/* Ticker lookup above mockup */}
+            <div style={{ marginBottom: 16 }}>
+              <TickerLookup />
+            </div>
+            <DashboardMockup />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Ticker bar ── */}
+      <TickerBar />
+
+      {/* ── Stats strip ── */}
+      <section style={{ padding: '40px 24px', borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 32 }}>
+          {[
+            { end: 50000, suffix: '+', label: 'mentions tracked daily' },
+            { end: 500,   suffix: '+', label: 'sources monitored' },
+            { end: 15,    suffix: 'min', label: 'scan interval' },
+            { end: 3,     suffix: ' LLMs', label: 'analysis layers' },
+          ].map(({ end, suffix, label }) => (
+            <div key={label}>
+              <div className="mono" style={{ fontSize: 30, fontWeight: 800, color: '#fff', letterSpacing: '-0.035em', lineHeight: 1.05 }}>
+                <Counter end={end} suffix={suffix} />
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Features ── */}
+      <section id="features" style={{ padding: '100px 24px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ marginBottom: 64 }}>
+            <div className="section-label">What it does</div>
+            <h2 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, letterSpacing: '-0.025em', color: '#fff', maxWidth: 520, lineHeight: 1.12, textWrap: 'balance' }}>
+              Three things most investors do manually, automated
+            </h2>
+          </div>
+
+          {/* Asymmetric grid: 2 col top, 1 wide bottom */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 0, border: `1px solid ${C.border}` }}>
+            {[
+              {
+                icon: <IconScan />,
+                accent: C.amber,
+                accentDim: C.amberDim,
+                title: 'Spike detection',
+                body: 'Continuous scan across Reddit, X, and financial news. When mention frequency moves past your threshold, you get an alert, not a headline two hours later.',
+                bullets: ['StockTwits, Finnhub, Alpha Vantage feeds', 'Per-ticker spike thresholds', 'Daily digest plus instant push'],
+              },
+              {
+                icon: <IconTrophy />,
+                accent: '#63b3ed',
+                accentDim: 'rgba(99,179,237,0.08)',
+                title: 'Source credibility scoring',
+                body: 'Every account that posts a prediction gets a tracked record. Win rate, reasoning quality, and transparency score update after every validated call.',
+                bullets: ['Win rate with sample size weighting', 'Lynch/Munger quality framework', 'Leaderboard per platform'],
+              },
+              {
+                icon: <IconBrain />,
+                accent: '#a78bfa',
+                accentDim: 'rgba(167,139,250,0.08)',
+                title: 'AI prediction extraction',
+                body: 'Grok runs a bull/bear debate on every substantive mention. Extracts price targets, timeframes, and confidence, then validates outcomes automatically.',
+                bullets: ['Structured bull case and bear case', 'Automatic target date validation', 'Price target accuracy tracking'],
+              },
+            ].map(f => (
+              <div key={f.title} style={{
+                padding: 36, background: C.surface,
+                borderRight: `1px solid ${C.border}`,
+                borderBottom: `1px solid ${C.border}`,
+                transition: 'background 0.15s ease',
+              }}
+                onMouseEnter={e => (e.currentTarget.style.background = C.surfaceHi)}
+                onMouseLeave={e => (e.currentTarget.style.background = C.surface)}
+              >
+                <div style={{
+                  width: 40, height: 40, borderRadius: 8,
+                  background: f.accentDim, border: `1px solid ${f.accent}22`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: f.accent, marginBottom: 20,
+                }}>
+                  {f.icon}
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.018em', color: '#fff', marginBottom: 10, lineHeight: 1.2 }}>{f.title}</h3>
+                <p style={{ fontSize: 14, lineHeight: 1.7, color: C.muted, marginBottom: 20, textWrap: 'pretty' }}>{f.body}</p>
+                <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {f.bullets.map(b => (
+                    <li key={b} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: f.accent, flexShrink: 0, marginTop: 6 }} />
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── How it works ── */}
+      <section id="how-it-works" style={{ padding: '100px 24px', borderTop: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.01)' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto' }}>
+          <div className="section-label">The process</div>
+          <h2 style={{ fontSize: 'clamp(26px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.025em', color: '#fff', marginBottom: 56, textWrap: 'balance', maxWidth: 480 }}>
+            From raw post to actionable signal
+          </h2>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {[
+              { n: '01', color: C.amber, title: 'Scan', body: 'Worker runs on Fly.io every 15 minutes. Pulls from StockTwits, Finnhub, Alpha Vantage news sentiment, and Reddit when credentials are active. Each mention is deduplicated and stored with platform, timestamp, and raw content.' },
+              { n: '02', color: '#63b3ed', title: 'Analyze', body: 'Every unprocessed mention gets routed through a two-path LLM pipeline. Short or low-signal content gets a single Grok pass. Substantive posts with price or time language run through a bull/bear researcher debate, producing a structured verdict.' },
+              { n: '03', color: '#a78bfa', title: 'Score', body: "Predictions get a target date. Each night at 9 PM the validator checks closing prices, marks outcomes correct or not, and updates source credibility scores. After enough calls, every tracked account has a real track record." },
+              { n: '04', color: C.green, title: 'Alert', body: 'When mention frequency crosses a spike threshold, or a high-confidence prediction fires, you get notified. Email via Resend, or Telegram if configured. No noise, only what crosses your configured bar.' },
+            ].map((step, i, arr) => (
+              <div key={step.n} style={{ display: 'flex', gap: 24, paddingBottom: i < arr.length - 1 ? 40 : 0, position: 'relative' }}>
+                {/* Line connector */}
+                {i < arr.length - 1 && (
+                  <div style={{ position: 'absolute', left: 19, top: 44, bottom: 0, width: 1, background: C.border }} />
+                )}
+                <div style={{
+                  width: 40, height: 40, borderRadius: 6, flexShrink: 0,
+                  background: `${step.color}14`, border: `1px solid ${step.color}30`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: step.color }}>{step.n}</span>
+                </div>
+                <div style={{ paddingTop: 8 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', letterSpacing: '-0.015em', marginBottom: 8 }}>{step.title}</h3>
+                  <p style={{ fontSize: 14, lineHeight: 1.7, color: C.muted, maxWidth: 560, textWrap: 'pretty' }}>{step.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Social proof ── */}
+      <section style={{ padding: '100px 24px', borderTop: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <div className="section-label">Early access feedback</div>
+          <h2 style={{ fontSize: 'clamp(24px, 3vw, 34px)', fontWeight: 700, letterSpacing: '-0.022em', color: '#fff', marginBottom: 48, textWrap: 'balance' }}>
+            From people using the actual product
+          </h2>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 0, border: `1px solid ${C.border}` }}>
+            {[
+              {
+                quote: "Caught the NVDA spike 18 minutes before it showed up in any headline. The mention velocity alert fired while I was still drinking coffee. That's the kind of edge I've been looking for.",
+                name: 'Jordan K.', role: 'Options trader, 6 years', initials: 'JK', color: C.amber,
+              },
+              {
+                quote: "The source ranking finally answers who to actually trust. I used to follow accounts with 80k followers who were consistently wrong. Now I filter by win rate with sample size, not follower count.",
+                name: 'Marcus T.', role: 'Swing trader, r/stocks', initials: 'MT', color: '#63b3ed',
+              },
+            ].map(t => (
+              <div key={t.name} style={{
+                padding: 32, background: C.surface,
+                borderRight: `1px solid ${C.border}`,
+                borderBottom: `1px solid ${C.border}`,
+                display: 'flex', flexDirection: 'column',
+              }}>
+                <p style={{ fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.7)', flex: 1, marginBottom: 28, textWrap: 'pretty' }}>
+                  "{t.quote}"
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: `${t.color}18`, border: `1px solid ${t.color}30`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 700, color: t.color, flexShrink: 0,
+                  }}>{t.initials}</div>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{t.name}</p>
+                    <p style={{ fontSize: 11, color: C.faint }}>{t.role}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ── */}
+      <section style={{ padding: '100px 24px', borderTop: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.01)' }}>
+        <div style={{ maxWidth: 480, margin: '0 auto' }}>
+          <div className="section-label">Pricing</div>
+          <h2 style={{ fontSize: 'clamp(24px, 3vw, 34px)', fontWeight: 700, letterSpacing: '-0.022em', color: '#fff', marginBottom: 4 }}>
+            One plan. No tiers.
+          </h2>
+          <p style={{ fontSize: 14, color: C.muted, marginBottom: 36 }}>Early access price, locked in for as long as you stay.</p>
+
+          <div style={{
+            border: `1px solid ${C.borderHi}`,
+            borderRadius: 6, overflow: 'hidden',
+          }}>
+            <div style={{ padding: '28px 28px 24px', borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                <span className="mono" style={{ fontSize: 42, fontWeight: 800, color: '#fff', letterSpacing: '-0.04em' }}>$29</span>
+                <span style={{ fontSize: 14, color: C.muted }}>/month</span>
+              </div>
+              <p style={{ fontSize: 13, color: C.faint }}>Cancel anytime. No contracts.</p>
+            </div>
+            <div style={{ padding: 28 }}>
+              <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+                {[
+                  'Spike detection across all sources',
+                  'AI prediction extraction and scoring',
+                  'Source credibility leaderboard',
+                  'Alert delivery via email and Telegram',
+                  'Strategy backtest engine',
+                  'Early access price locked for life',
+                ].map(item => (
+                  <li key={item} style={{ display: 'flex', alignItems: 'baseline', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, marginTop: 3 }}>
+                      <path d="M2 6l3 3 5-5" stroke={C.amber} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link to="/sign-up" className="btn-primary" style={{ display: 'block', textAlign: 'center', width: '100%', padding: '13px 0' }}>
+                Start free trial
+              </Link>
+              <p style={{ textAlign: 'center', fontSize: 12, color: C.faint, marginTop: 12 }}>No credit card required for trial</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section style={{ padding: '80px 24px', borderTop: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <div className="section-label">Questions</div>
+          <h2 style={{ fontSize: 'clamp(22px, 2.8vw, 32px)', fontWeight: 700, letterSpacing: '-0.02em', color: '#fff', marginBottom: 40 }}>Common questions</h2>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {featuredFaqs.map((faq, i) => (
+              <details key={i} style={{ borderTop: `1px solid ${C.border}` }}>
+                <summary style={{
+                  padding: '18px 0', cursor: 'pointer', listStyle: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                  fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.8)',
+                }}>
+                  {faq.question}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s ease' }}>
+                    <path d="M3 5l4 4 4-4" stroke={C.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </summary>
+                <div style={{ paddingBottom: 18, fontSize: 14, lineHeight: 1.75, color: C.muted, textWrap: 'pretty' }}>{faq.answer}</div>
+              </details>
+            ))}
+            <div style={{ borderTop: `1px solid ${C.border}` }} />
+          </div>
+          <div style={{ marginTop: 28, textAlign: 'center' }}>
+            <Link to="/faq" style={{ fontSize: 13, fontWeight: 600, color: C.amber, textDecoration: 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>
+              See all frequently asked questions &rarr;
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ── */}
+      <section className="grid-bg" style={{ padding: '100px 24px', borderTop: `1px solid ${C.border}`, position: 'relative', textAlign: 'center' }}>
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse 60% 80% at 50% 50%, rgba(232,168,74,0.05) 0%, transparent 70%)',
+        }} />
+        <div style={{ maxWidth: 560, margin: '0 auto', position: 'relative' }}>
+          <div className="section-label" style={{ textAlign: 'center' }}>Get started</div>
+          <h2 style={{ fontSize: 'clamp(28px, 4.5vw, 48px)', fontWeight: 700, letterSpacing: '-0.03em', color: '#fff', lineHeight: 1.08, marginBottom: 16, textWrap: 'balance' }}>
+            Know before the headline.
+          </h2>
+          <p style={{ fontSize: 16, color: C.muted, marginBottom: 36 }}>Join traders using Street Insights to catch spikes before they make news.</p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link to="/sign-up" className="btn-primary" style={{ fontSize: 15, padding: '13px 28px' }}>Start free trial</Link>
+            <Link to="/demo" className="btn-ghost" style={{ fontSize: 15, padding: '13px 28px' }}>View demo</Link>
+          </div>
+          <p style={{ marginTop: 16, fontSize: 12, color: C.faint }}>No credit card required</p>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <FooterSection />
     </div>
   );
 }
