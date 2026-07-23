@@ -1,0 +1,40 @@
+# Street Insights
+> AI-powered stock sentiment analysis. Track market signals, news flow, and social sentiment across your portfolio with real-time intelligence.
+
+## What is Street Insights?
+Street Insights is a stock sentiment tracking platform that uses AI to analyze social media posts, news articles, and community discussions about stocks in real-time. It identifies emerging narratives, detects sentiment spikes, and validates predictions against actual price movements.
+
+## Who is it for?
+- Retail investors who want an edge from social sentiment data
+- Active traders monitoring market narratives
+- Investment researchers tracking emerging stock discussions
+- Anyone who wants AI-filtered signal from social media noise
+
+## What problems does it solve?
+- Retail investors miss early sentiment shifts that precede price movements
+- Monitoring Reddit, Twitter, and news for stock mentions is overwhelming
+- Most sentiment tools are delayed or inaccurate
+- Distinguishing signal from noise in social media stock discussions is nearly impossible manually
+- Validating whether social sentiment actually predicts price movement requires historical tracking
+
+## Key Features
+- **Real-Time Sentiment** — AI analyzes mentions across Twitter, Reddit, and news sources
+- **Spike Detection** — Alerts when sentiment volume or direction changes abnormally
+- **Prediction Tracking** — Extracts specific price predictions from posts and validates them over time
+- **ML Price Prediction** — Machine learning model predicts price movement direction
+- **Portfolio Monitoring** — Track sentiment for your specific watchlist
+- **Alert System** — Email notifications for significant sentiment events
+- **Framework Analysis** — Evaluates posts using Lynch Pitch and Munger Invert frameworks
+
+## Company
+Street Insights is built by Boxford Partners, an embedded operations consulting firm based in San Francisco.
+
+## Contact
+- Website: https://getstreetinsights.com
+- Email: hello@getstreetinsights.com
+- Parent company: https://boxfordpartners.com
+
+## Sitemap
+- / — Landing page with product overview
+- /blog — Market analysis articles and platform updates
+- /faq — Frequently asked questions
