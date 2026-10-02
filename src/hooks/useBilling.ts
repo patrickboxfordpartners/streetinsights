@@ -1,8 +1,10 @@
 import { useState, useCallback } from "react";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { supabase } from "../integrations/supabase/client";
 
 export function useBilling() {
   const [loading, setLoading] = useState(false);
+  const { getToken, userId } = useClerkAuth();
 
   const startCheckout = useCallback(async function startCheckout(priceId: string) {
     if (!priceId) {
@@ -12,23 +14,23 @@ export function useBilling() {
 
     setLoading(true);
     try {
-      // Refresh session to get a fresh token
-      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
-      console.log("[useBilling] Session check:", { hasSession: !!session, userId: session?.user?.id, refreshError });
-
-      if (!session) {
-        console.log("[useBilling] No session found, redirecting to signup");
+      if (!userId) {
+        console.log("[useBilling] No user found, redirecting to signup");
         window.location.href = `/sign-up?redirect=${encodeURIComponent(`/pricing?plan=${priceId}`)}`;
         return;
       }
 
-      console.log("[useBilling] Calling stripe-checkout Edge Function with priceId:", priceId);
+      const token = await getToken({ template: "supabase" });
+      console.log("[useBilling] Got Clerk token, calling stripe-checkout");
 
       const { data, error } = await supabase.functions.invoke("stripe-checkout", {
         body: {
           priceId,
           successUrl: `${window.location.origin}/?checkout=success`,
           cancelUrl: `${window.location.origin}/pricing?checkout=cancelled`,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -52,7 +54,7 @@ export function useBilling() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getToken, userId]);
 
   return { startCheckout, loading };
 }

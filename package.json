@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
+    "@clerk/clerk-react": "^5.61.10",
     "@formkit/auto-animate": "^0.9.0",
     "@mastra/core": "^1.35.0",
     "@modelcontextprotocol/sdk": "^1.29.0",

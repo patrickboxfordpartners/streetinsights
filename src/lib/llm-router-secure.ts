@@ -22,25 +22,22 @@ interface LLMResponse {
 }
 
 /**
- * Route LLM request through secure server-side proxy
- * All API keys are stored as Supabase secrets and never exposed to client
+ * Route LLM request through secure server-side proxy.
+ * Accepts an auth token (from Clerk) to authenticate with the edge function.
  */
 export async function routeLLMRequest(
-  request: LLMRequest
+  request: LLMRequest,
+  authToken?: string | null
 ): Promise<LLMResponse> {
   try {
-    // Get current session for authentication
-    const { data: { session } } = await supabase.auth.getSession()
-
-    if (!session) {
+    if (!authToken) {
       throw new Error('You must be logged in to use LLM features')
     }
 
-    // Call Supabase Edge Function with authentication
     const { data, error } = await supabase.functions.invoke('llm-proxy', {
       body: request,
       headers: {
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${authToken}`,
       },
     })
 
@@ -68,7 +65,6 @@ export function getAvailableProviders(): Array<{
   model: string
   enabled: boolean
 }> {
-  // Return placeholder data since actual availability is server-side
   return [
     { name: "xai", model: "grok-3-mini", enabled: true },
     { name: "openai", model: "gpt-4o-mini", enabled: true },

@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "../hooks/useAuth"
-import { Navigate, Link, useSearchParams } from "react-router-dom"
-import { UserPlus } from "lucide-react"
+import { Navigate, useSearchParams } from "react-router-dom"
+import { SignUp as ClerkSignUp } from "@clerk/clerk-react"
 import logoIcon from "../assets/logo-icon.png"
-import { supabase } from "../integrations/supabase/client"
 import { useBilling } from "../hooks/useBilling"
 import { usePageMeta } from "../hooks/usePageMeta"
+
+const PHOTOS = [
+  "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=2074&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=2070&auto=format&fit=crop",
+]
 
 export function SignUp() {
   usePageMeta({ title: "Create Account", description: "Sign up for Street Insights to get AI-powered stock sentiment alerts and market signal tracking." })
@@ -13,31 +19,29 @@ export function SignUp() {
   const [searchParams] = useSearchParams()
   const checkoutSuccess = searchParams.get("checkout") === "success"
   const planFromUrl = searchParams.get("plan")
-
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [photoIndex] = useState(() => Math.floor(Math.random() * PHOTOS.length))
 
   const { startCheckout, loading: checkoutLoading } = useBilling()
 
-  // If user is logged in and has a plan parameter (URL or localStorage), go to checkout
   useEffect(() => {
     if (session) {
       const plan = planFromUrl || localStorage.getItem("pending_plan")
       if (plan) {
-        // Clear pending plan from storage before checkout
         localStorage.removeItem("pending_plan")
         startCheckout(plan)
       }
     }
   }, [session, planFromUrl, startCheckout])
 
+  useEffect(() => {
+    if (planFromUrl) {
+      localStorage.setItem("pending_plan", planFromUrl)
+    }
+  }, [planFromUrl])
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="h-10 w-10 animate-pulse">
           <img src={logoIcon} alt="Street Insights logo" className="h-full w-full" />
         </div>
@@ -45,171 +49,82 @@ export function SignUp() {
     )
   }
 
-  // If logged in but no plan selected, send to pricing
   if (session && !planFromUrl && !localStorage.getItem("pending_plan")) {
     return <Navigate to="/pricing" replace />
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError("")
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      return
-    }
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters")
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const { data, error } = await supabase.auth.signUp({ email, password })
-      if (error) throw error
-
-      // If we got a session back (no email confirmation required), checkout will
-      // be triggered by the useEffect. Otherwise show confirmation message.
-      if (!data.session) {
-        if (planFromUrl) {
-          localStorage.setItem("pending_plan", planFromUrl)
-        }
-        setSuccess(true)
-      }
-    } catch (err: any) {
-      const msg = err.message || "Could not create account"
-      if (msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("already in use")) {
-        setError("An account with this email already exists. Sign in instead.")
-      } else if (msg.toLowerCase().includes("password")) {
-        setError("Password is too weak. Use at least 6 characters.")
-      } else {
-        setError(msg)
-      }
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-xs text-center">
-          <img src={logoIcon} alt="Street Insights logo" className="h-16 w-auto mx-auto mb-3" />
-          <h1 className="text-sm font-bold tracking-tight uppercase">Street Insights</h1>
-          <p className="text-xs text-muted-foreground tracking-wider uppercase mt-0.5 mb-8">
-            Boxford Partners
-          </p>
-          <div className="bg-card rounded-lg border p-6">
-            <div className="text-xs font-medium text-emerald-500 uppercase tracking-wider mb-3">
-              Account Created
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Check your email to confirm your account. Once confirmed, you can sign in.
-            </p>
-            <Link
-              to="/login"
-              className="mt-4 inline-block text-xs text-primary hover:underline"
-            >
-              Back to sign in
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-xs">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <img src={logoIcon} alt="Street Insights logo" className="h-16 w-auto mx-auto mb-3" />
-          <h1 className="text-sm font-bold tracking-tight uppercase">Street Insights</h1>
-          <p className="text-xs text-muted-foreground tracking-wider uppercase mt-0.5">
-            Boxford Partners
+    <div className="min-h-screen flex">
+      {/* Left -- Form */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-white">
+        <div className="w-full max-w-[400px]">
+          {/* Logo */}
+          <div className="flex justify-center mb-14">
+            <img src={logoIcon} alt="Street Insights logo" className="h-10 w-auto" />
+          </div>
+
+          <h1 className="text-[32px] font-bold text-gray-900 tracking-tight mb-2">
+            Create your account
+          </h1>
+          <p className="text-gray-500 text-[15px] mb-8">
+            AI-powered stock sentiment intelligence
           </p>
-        </div>
 
-        {/* Post-checkout banner */}
-        {checkoutSuccess && (
-          <div className="mb-4 text-xs text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2 text-center">
-            Payment successful, create your account to get started
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-card rounded-lg border p-6 space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Create Account
-            </span>
-          </div>
-
-          {error && (
-            <div className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
-              {error}
+          {checkoutSuccess && (
+            <div className="mb-4 text-sm text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-center">
+              Payment successful, create your account to get started
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full bg-background border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="you@example.com"
-            />
+          {checkoutLoading && (
+            <div className="mb-4 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-center">
+              Redirecting to checkout...
+            </div>
+          )}
+
+          <ClerkSignUp
+            routing="hash"
+            signInUrl="/login"
+            appearance={{
+              elements: {
+                rootBox: "w-full",
+                card: "bg-transparent shadow-none p-0 w-full",
+                headerTitle: "hidden",
+                headerSubtitle: "hidden",
+                socialButtonsBlockButton:
+                  "bg-gray-50 border border-gray-200 text-gray-900 hover:bg-gray-100",
+                formButtonPrimary:
+                  "bg-gray-900 hover:bg-gray-800 text-white h-12 text-[15px] font-medium rounded-lg",
+                formFieldInput:
+                  "h-12 px-4 bg-gray-50 border border-gray-200 rounded-lg text-[15px] placeholder:text-gray-400 focus:bg-white focus:border-gray-300",
+                formFieldLabel: "text-gray-700 text-sm font-medium",
+                footerAction: "hidden",
+                footer: "hidden",
+                dividerLine: "bg-gray-200",
+                dividerText: "text-gray-400 text-sm",
+              },
+            }}
+          />
+
+          {/* Legal footer */}
+          <div className="mt-8 flex justify-center gap-4">
+            <a href="/privacy" className="text-xs text-gray-400 hover:text-gray-500 transition-colors">
+              Privacy
+            </a>
+            <a href="/terms" className="text-xs text-gray-400 hover:text-gray-500 transition-colors">
+              Terms
+            </a>
           </div>
+        </div>
+      </div>
 
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full bg-background border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="w-full bg-background border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting || checkoutLoading}
-            className="w-full bg-primary text-primary-foreground rounded-md py-2 text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {checkoutLoading ? "Redirecting to checkout..." : submitting ? "Creating account..." : "Create Account"}
-          </button>
-        </form>
-
-        <p className="text-xs text-center text-muted-foreground mt-4">
-          Already have an account?{" "}
-          <Link to="/login" className="text-primary hover:underline">
-            Sign in
-          </Link>
-        </p>
+      {/* Right -- Photo */}
+      <div className="hidden lg:block flex-1 relative overflow-hidden">
+        <img
+          src={PHOTOS[photoIndex]}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
       </div>
     </div>
   )

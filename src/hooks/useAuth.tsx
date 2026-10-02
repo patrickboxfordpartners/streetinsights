@@ -1,48 +1,51 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import type { Session } from "@supabase/supabase-js"
-import { supabase } from "../integrations/supabase/client"
+import { createContext, useContext, useCallback, type ReactNode } from "react"
+import {
+  useUser,
+  useAuth as useClerkAuth,
+  useClerk,
+} from "@clerk/clerk-react"
+
+interface AuthUser {
+  id: string
+  email: string
+}
 
 interface AuthContextType {
-  session: Session | null
-  user: Session["user"] | null
+  session: { user: AuthUser } | null
+  user: AuthUser | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: () => void
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { isLoaded, isSignedIn, user: clerkUser } = useUser()
+  const { signOut: clerkSignOut } = useClerk()
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
+  const user: AuthUser | null =
+    isLoaded && isSignedIn && clerkUser
+      ? {
+          id: clerkUser.id,
+          email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
+        }
+      : null
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setLoading(false)
-    })
+  const session = user ? { user } : null
 
-    return () => subscription?.unsubscribe()
+  const signIn = useCallback(() => {
+    window.location.href = "/login"
   }, [])
 
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-  }
-
-  async function signOut() {
-    await supabase.auth.signOut()
-  }
+  const signOut = useCallback(async () => {
+    await clerkSignOut()
+  }, [clerkSignOut])
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ session, user, loading: !isLoaded, signIn, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   )

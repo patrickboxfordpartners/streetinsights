@@ -14,22 +14,27 @@ interface LLMProvider {
   baseURL?: string;
 }
 
+const proxyKey = process.env.AI_PROXY_KEY;
+const proxyBase = process.env.AI_PROXY_BASE;
+
 const providers: LLMProvider[] = [
   {
     name: "xai",
     model: "grok-3-mini",
-    apiKey: process.env.XAI_API_KEY,
-    baseURL: "https://api.x.ai/v1",
+    apiKey: proxyKey || process.env.XAI_API_KEY,
+    baseURL: proxyBase ? `${proxyBase}/v1/xai/v1` : "https://api.x.ai/v1",
   },
   {
     name: "openai",
     model: "gpt-4o-mini",
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: proxyKey || process.env.OPENAI_API_KEY,
+    baseURL: proxyBase ? `${proxyBase}/v1/openai/v1` : undefined,
   },
   {
     name: "anthropic",
     model: "claude-3-5-haiku-20241022",
-    apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey: proxyKey || process.env.ANTHROPIC_API_KEY,
+    baseURL: proxyBase ? `${proxyBase}/v1/anthropic` : undefined,
   },
   {
     name: "google",
@@ -117,7 +122,7 @@ class LLMClient {
           content = data.choices[0].message.content;
         } else if (provider.name === "anthropic") {
           // Anthropic Claude API
-          const anthropic = new Anthropic({ apiKey: provider.apiKey });
+          const anthropic = new Anthropic({ apiKey: provider.apiKey, ...(provider.baseURL && { baseURL: provider.baseURL }) });
 
           // Extract system message
           const systemMessage = options.messages.find((m) => m.role === "system")?.content;
