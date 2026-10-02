@@ -1,23 +1,17 @@
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 import { useAuth } from "../hooks/useAuth"
 import { Navigate } from "react-router-dom"
 import { SignIn } from "@clerk/clerk-react"
 import logoIcon from "../assets/logo-icon.png"
 import { usePageMeta } from "../hooks/usePageMeta"
 import { useBilling } from "../hooks/useBilling"
-
-const PHOTOS = [
-  "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=2074&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2070&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=2070&auto=format&fit=crop",
-]
+import { useUnsplashPhoto } from "../hooks/useUnsplashPhoto"
 
 export function Login() {
   usePageMeta({ title: "Sign In", description: "Sign in to your Street Insights account to access AI-powered stock sentiment signals." })
   const { session, loading } = useAuth()
   const { startCheckout } = useBilling()
-  const [photoIndex] = useState(() => Math.floor(Math.random() * PHOTOS.length))
+  const photo = useUnsplashPhoto()
 
   useEffect(() => {
     if (session) {
@@ -102,10 +96,20 @@ export function Login() {
       {/* Right -- Photo */}
       <div className="hidden lg:block flex-1 relative overflow-hidden">
         <img
-          src={PHOTOS[photoIndex]}
+          src={photo.url}
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
         />
+        <div className="absolute bottom-4 right-4 text-white/70 text-xs">
+          Photo by{" "}
+          <a href={photo.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">
+            {photo.photographer}
+          </a>
+          {" "}on{" "}
+          <a href="https://unsplash.com?utm_source=boxford&utm_medium=referral" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">
+            Unsplash
+          </a>
+        </div>
       </div>
     </div>
   )
