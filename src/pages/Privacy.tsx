@@ -6,7 +6,7 @@ export default function Privacy() {
     <div className="mx-auto max-w-3xl px-6 py-20 lg:px-8">
       <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Legal</p>
       <h1 className="mt-3 text-4xl font-bold tracking-tight">Privacy Policy</h1>
-      <p className="mt-4 text-sm text-gray-500">Last updated: June 16, 2026</p>
+      <p className="mt-4 text-sm text-gray-500">Last updated: October 1, 2026</p>
 
       <div className="mt-12 space-y-8 text-gray-700 leading-relaxed">
         <p>Street Insights ("Street Insights," "we," "us," or "our"), a Boxford Partners LLC product, operates getstreetinsights.com. This Privacy Policy explains what information we collect, how we use it, and your rights with respect to it.</p>
@@ -33,8 +33,11 @@ export default function Privacy() {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-3">Third-Party Service Providers</h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong>Supabase</strong> — database and authentication infrastructure</li>
+            <li><strong>Supabase</strong> — database infrastructure</li>
+            <li><strong>Clerk</strong> — authentication and identity management</li>
             <li><strong>xAI / Grok</strong> — AI-powered sentiment analysis features</li>
+            <li><strong>Alpha Vantage</strong> — financial market data</li>
+            <li><strong>NewsAPI</strong> — news aggregation and headlines</li>
             <li><strong>Inngest</strong> — background job processing</li>
             <li><strong>Resend</strong> — email alert delivery</li>
             <li><strong>Vercel</strong> — hosting and infrastructure</li>

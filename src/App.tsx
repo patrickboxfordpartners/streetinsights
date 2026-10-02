@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { CookieBanner } from './components/CookieBanner'
 import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { ThemeProvider } from './hooks/useTheme'
 import { ToastProvider } from './components/Toast'
@@ -126,6 +127,7 @@ function App() {
                 <Route path="query" element={<QuerySignals />} />
               </Route>
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="/blog" element={<Suspense fallback={null}><Blog /></Suspense>} />
               <Route path="/blog/:slug" element={<Suspense fallback={null}><BlogPost /></Suspense>} />
               <Route path="*" element={<NotFound />} />
