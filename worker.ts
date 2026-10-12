@@ -10,25 +10,182 @@ import * as functions from "./src/inngest/functions/index.js";
 import { handleMcp } from "./src/mcp/server.js";
 import { naturalLanguageToSQL, explainSQL, isSafeQuery } from "./src/lib/nl-query.js";
 import { calculateTechnicalIndicators } from "./src/lib/technical-indicators.js";
-import pg from "pg";
 import YahooFinance from "yahoo-finance2";
+import { rawQuery } from "./src/db/execute.js";
+import { mountApi, mountStripeWebhook } from "./src/server/routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const AVAILABLE_DOCS = ["overview", "mcp", "query"] as const;
 type DocSlug = (typeof AVAILABLE_DOCS)[number];
 const DOCS_DIR = join(__dirname, "docs");
+const docCache = new Map<string, string>();
 
-const { Pool } = pg;
-const dbPool = process.env.SUPABASE_DB_URL
-  ? new Pool({ connectionString: process.env.SUPABASE_DB_URL, max: 5 })
-  : null;
+function readDoc(slug: string): string {
+  const hit = docCache.get(slug);
+  if (hit !== undefined) return hit;
+  const md = readFileSync(join(DOCS_DIR, `${slug}.md`), "utf8");
+  docCache.set(slug, md);
+  return md;
+}
+
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+
+// Per-symbol quote cache. A single shared blob was replaced on every
+// distinct symbol list, so a one-ticker page wiped the dashboard cache.
+const QUOTE_CACHE_TTL_MS = 60_000;
+const MAX_QUOTE_SYMBOLS = 40;
+const MAX_CACHED_QUOTES = 200;
+const quoteCache = new Map<string, { quote: CachedQuote; ts: number }>();
+
+interface CachedQuote {
+  symbol: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  marketState: string | undefined;
+  dayLow: number;
+  dayHigh: number;
+  yearHigh: number;
+  yearLow: number;
+  marketCap: number;
+  volume: number;
+  avgVolume: number;
+  open: number;
+  previousClose: number;
+  pe: number;
+  forwardPE: number;
+  eps: number;
+  forwardEps: number;
+  fiftyDayAvg: number;
+  twoHundredDayAvg: number;
+  bookValue: number;
+  priceToBook: number;
+  revenue: number;
+  revenuePerShare: number;
+  profitMargins: number;
+  operatingMargins: number;
+  returnOnAssets: number;
+  returnOnEquity: number;
+  debtToEquity: number;
+  currentRatio: number;
+  quickRatio: number;
+  grossMargins: number;
+  ebitdaMargins: number;
+}
+
+interface YahooQuoteFields {
+  symbol?: string;
+  regularMarketPrice?: number;
+  regularMarketChange?: number;
+  regularMarketChangePercent?: number;
+  marketState?: string;
+  regularMarketDayLow?: number;
+  regularMarketDayHigh?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  marketCap?: number;
+  regularMarketVolume?: number;
+  averageDailyVolume3Month?: number;
+  regularMarketOpen?: number;
+  regularMarketPreviousClose?: number;
+  trailingPE?: number;
+  forwardPE?: number;
+  trailingEps?: number;
+  epsForward?: number;
+  fiftyDayAverage?: number;
+  twoHundredDayAverage?: number;
+  bookValue?: number;
+  priceToBook?: number;
+  totalRevenue?: number;
+  revenuePerShare?: number;
+  profitMargins?: number;
+  operatingMargins?: number;
+  returnOnAssets?: number;
+  returnOnEquity?: number;
+  debtToEquity?: number;
+  currentRatio?: number;
+  quickRatio?: number;
+  grossMargins?: number;
+  ebitdaMargins?: number;
+}
+
+function mapYahooQuote(q: YahooQuoteFields): CachedQuote {
+  return {
+    symbol: q.symbol ?? "",
+    price: q.regularMarketPrice ?? 0,
+    change: q.regularMarketChange ?? 0,
+    changePercent: q.regularMarketChangePercent ?? 0,
+    marketState: q.marketState,
+    dayLow: q.regularMarketDayLow ?? 0,
+    dayHigh: q.regularMarketDayHigh ?? 0,
+    yearHigh: q.fiftyTwoWeekHigh ?? 0,
+    yearLow: q.fiftyTwoWeekLow ?? 0,
+    marketCap: q.marketCap ?? 0,
+    volume: q.regularMarketVolume ?? 0,
+    avgVolume: q.averageDailyVolume3Month ?? 0,
+    open: q.regularMarketOpen ?? 0,
+    previousClose: q.regularMarketPreviousClose ?? 0,
+    pe: q.trailingPE ?? 0,
+    forwardPE: q.forwardPE ?? 0,
+    eps: q.trailingEps ?? 0,
+    forwardEps: q.epsForward ?? 0,
+    fiftyDayAvg: q.fiftyDayAverage ?? 0,
+    twoHundredDayAvg: q.twoHundredDayAverage ?? 0,
+    bookValue: q.bookValue ?? 0,
+    priceToBook: q.priceToBook ?? 0,
+    revenue: q.totalRevenue ?? 0,
+    revenuePerShare: q.revenuePerShare ?? 0,
+    profitMargins: q.profitMargins ?? 0,
+    operatingMargins: q.operatingMargins ?? 0,
+    returnOnAssets: q.returnOnAssets ?? 0,
+    returnOnEquity: q.returnOnEquity ?? 0,
+    debtToEquity: q.debtToEquity ?? 0,
+    currentRatio: q.currentRatio ?? 0,
+    quickRatio: q.quickRatio ?? 0,
+    grossMargins: q.grossMargins ?? 0,
+    ebitdaMargins: q.ebitdaMargins ?? 0,
+  };
+}
+
+function rememberQuote(quote: CachedQuote, ts: number) {
+  if (!quote.symbol) return;
+  quoteCache.delete(quote.symbol);
+  quoteCache.set(quote.symbol, { quote, ts });
+  while (quoteCache.size > MAX_CACHED_QUOTES) {
+    const oldest = quoteCache.keys().next().value;
+    if (!oldest) break;
+    quoteCache.delete(oldest);
+  }
+}
+
+const DEFAULT_SYMBOLS = [
+  "NVDA", "TSLA", "AAPL", "MSFT", "GOOGL", "META", "AMD", "PLTR",
+  "AMZN", "NFLX", "SPY", "QQQ", "COIN", "SOFI", "SMCI", "ARM",
+];
+
+const TECHNICALS_TTL_MS = 5 * 60_000;
+const MAX_CACHED_TECHNICALS = 50;
+const technicalsCache = new Map<string, { body: unknown; ts: number }>();
+
+function rememberTechnicals(symbol: string, body: unknown) {
+  technicalsCache.delete(symbol);
+  technicalsCache.set(symbol, { body, ts: Date.now() });
+  while (technicalsCache.size > MAX_CACHED_TECHNICALS) {
+    const oldest = technicalsCache.keys().next().value;
+    if (!oldest) break;
+    technicalsCache.delete(oldest);
+  }
+}
 
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Stripe signature verification needs the raw body, so this route is mounted
+// before the JSON parser.
+mountStripeWebhook(app);
 app.use(cors());
 app.use(express.json({ limit: "4mb" }));
+mountApi(app);
 
 // Inngest endpoint — serveHost tells Inngest Cloud how to reach this worker
 app.use(
@@ -43,79 +200,54 @@ app.use(
   })
 );
 
-// In-memory quote cache (refreshes every 60s max)
-let quoteCache: { data: any[]; ts: number } = { data: [], ts: 0 };
-const CACHE_TTL = 60_000;
-
-const DEFAULT_SYMBOLS = [
-  "NVDA", "TSLA", "AAPL", "MSFT", "GOOGL", "META", "AMD", "PLTR",
-  "AMZN", "NFLX", "SPY", "QQQ", "COIN", "SOFI", "SMCI", "ARM",
-];
-
 app.get("/api/quotes", async (req, res) => {
   try {
-    const symbolsParam = req.query.symbols as string | undefined;
-    const symbols = symbolsParam
-      ? symbolsParam.split(",").map((s) => s.trim().toUpperCase())
+    const symbolsParam = req.query.symbols;
+    const requested = typeof symbolsParam === "string"
+      ? symbolsParam.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
       : DEFAULT_SYMBOLS;
+    const symbols = [...new Set(requested)].slice(0, MAX_QUOTE_SYMBOLS);
+    if (symbols.length === 0) {
+      res.status(400).json({ error: "symbols is required" });
+      return;
+    }
 
     const now = Date.now();
-    const cacheKey = symbols.join(",");
-
-    // Return cache if fresh and same symbols
-    if (
-      quoteCache.data.length > 0 &&
-      now - quoteCache.ts < CACHE_TTL &&
-      quoteCache.data.map((q) => q.symbol).join(",") === cacheKey
-    ) {
-      return res.json(quoteCache.data);
+    const fresh = new Map<string, CachedQuote>();
+    const missing: string[] = [];
+    for (const symbol of symbols) {
+      const hit = quoteCache.get(symbol);
+      if (hit && now - hit.ts < QUOTE_CACHE_TTL_MS) fresh.set(symbol, hit.quote);
+      else missing.push(symbol);
     }
 
-    const results = await yahooFinance.quote(symbols);
-    const quotes = (Array.isArray(results) ? results : [results]).map((q: any) => ({
-      symbol: q.symbol,
-      price: q.regularMarketPrice ?? 0,
-      change: q.regularMarketChange ?? 0,
-      changePercent: q.regularMarketChangePercent ?? 0,
-      marketState: q.marketState,
-      // Extended fields for TickerDetail fundamentals + StockQuote
-      dayLow: q.regularMarketDayLow ?? 0,
-      dayHigh: q.regularMarketDayHigh ?? 0,
-      yearHigh: q.fiftyTwoWeekHigh ?? 0,
-      yearLow: q.fiftyTwoWeekLow ?? 0,
-      marketCap: q.marketCap ?? 0,
-      volume: q.regularMarketVolume ?? 0,
-      avgVolume: q.averageDailyVolume3Month ?? 0,
-      open: q.regularMarketOpen ?? 0,
-      previousClose: q.regularMarketPreviousClose ?? 0,
-      pe: q.trailingPE ?? 0,
-      forwardPE: q.forwardPE ?? 0,
-      eps: q.trailingEps ?? 0,
-      forwardEps: q.epsForward ?? 0,
-      fiftyDayAvg: q.fiftyDayAverage ?? 0,
-      twoHundredDayAvg: q.twoHundredDayAverage ?? 0,
-      bookValue: q.bookValue ?? 0,
-      priceToBook: q.priceToBook ?? 0,
-      revenue: q.totalRevenue ?? 0,
-      revenuePerShare: q.revenuePerShare ?? 0,
-      profitMargins: q.profitMargins ?? 0,
-      operatingMargins: q.operatingMargins ?? 0,
-      returnOnAssets: q.returnOnAssets ?? 0,
-      returnOnEquity: q.returnOnEquity ?? 0,
-      debtToEquity: q.debtToEquity ?? 0,
-      currentRatio: q.currentRatio ?? 0,
-      quickRatio: q.quickRatio ?? 0,
-      grossMargins: q.grossMargins ?? 0,
-      ebitdaMargins: q.ebitdaMargins ?? 0,
-    }));
-
-    quoteCache = { data: quotes, ts: now };
-    res.json(quotes);
-  } catch (err: any) {
-    // Return stale cache on error instead of spamming logs
-    if (quoteCache.data.length > 0) {
-      return res.json(quoteCache.data);
+    if (missing.length > 0) {
+      try {
+        const results = await yahooFinance.quote(missing);
+        const quotes = (Array.isArray(results) ? results : [results]).map((q) => mapYahooQuote(q));
+        for (const quote of quotes) {
+          rememberQuote(quote, now);
+          if (quote.symbol) fresh.set(quote.symbol, quote);
+        }
+      } catch {
+        const stale = symbols
+          .map((symbol) => quoteCache.get(symbol)?.quote)
+          .filter((quote): quote is CachedQuote => !!quote);
+        if (stale.length > 0) {
+          res.json(stale);
+          return;
+        }
+        res.status(502).json({ error: "Quote service temporarily unavailable" });
+        return;
+      }
     }
+
+    res.json(
+      symbols
+        .map((symbol) => fresh.get(symbol))
+        .filter((quote): quote is CachedQuote => !!quote),
+    );
+  } catch {
     res.status(502).json({ error: "Quote service temporarily unavailable" });
   }
 });
@@ -139,8 +271,8 @@ app.post("/api/swarm/run", async (req, res) => {
 
 // Natural language query endpoint
 app.post("/api/query", async (req, res) => {
-  if (!dbPool) {
-    res.status(503).json({ error: "SUPABASE_DB_URL not configured" });
+  if (!process.env.DATABASE_URL) {
+    res.status(503).json({ error: "DATABASE_URL not configured" });
     return;
   }
 
@@ -158,11 +290,12 @@ app.post("/api/query", async (req, res) => {
       return;
     }
 
-    const result = await dbPool.query(sql);
-    const columns = result.fields.map((f) => f.name);
-    const [explanation] = await Promise.all([explainSQL(question, sql)]);
+    const explanationPromise = explainSQL(question, sql).catch(() => "Explanation unavailable.");
+    const rows = await rawQuery(sql);
+    const columns = rows[0] ? Object.keys(rows[0]) : [];
+    const explanation = await explanationPromise;
 
-    res.json({ sql, results: { rows: result.rows, columns }, explanation });
+    res.json({ sql, results: { rows, columns }, explanation });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -171,6 +304,15 @@ app.post("/api/query", async (req, res) => {
 // Technical indicators endpoint — fetches 200d history from Yahoo Finance and computes RSI, MA, MACD
 app.get("/api/technicals/:symbol", async (req, res) => {
   const symbol = req.params.symbol.toUpperCase();
+  if (!/^[A-Z0-9.\-]{1,10}$/.test(symbol)) {
+    res.status(400).json({ error: "invalid symbol" });
+    return;
+  }
+  const cached = technicalsCache.get(symbol);
+  if (cached && Date.now() - cached.ts < TECHNICALS_TTL_MS) {
+    res.json(cached.body);
+    return;
+  }
   try {
     const end = new Date();
     const start = new Date();
@@ -197,7 +339,9 @@ app.get("/api/technicals/:symbol", async (req, res) => {
     }));
 
     const indicators = calculateTechnicalIndicators(bars);
-    res.json({ symbol, bars_fetched: bars.length, indicators });
+    const body = { symbol, bars_fetched: bars.length, indicators };
+    rememberTechnicals(symbol, body);
+    res.json(body);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -353,7 +497,7 @@ app.get("/docs/:slug", (req, res) => {
   const accept = req.headers["accept"] ?? "";
   const wantsMarkdown = /text\/(plain|markdown)/.test(accept) && !/text\/html/.test(accept);
   if (wantsMarkdown) {
-    const md = readFileSync(join(DOCS_DIR, `${slug}.md`), "utf8");
+    const md = readDoc(slug);
     res.set("Content-Type", "text/markdown; charset=utf-8").end(md);
     return;
   }

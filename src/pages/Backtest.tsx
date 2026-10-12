@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { Activity, FlaskConical, TrendingUp, TrendingDown, Target, Percent, BarChart2, Loader2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { formatDate } from '../lib/utils'
@@ -112,7 +112,7 @@ export function Backtest() {
       since.setDate(since.getDate() - params.lookbackDays)
 
       // Fetch validated predictions that meet threshold
-      const { data: validations, error: err } = await supabase
+      const { data: validations, error: err } = await db
         .from('validations')
         .select(`
           prediction_id,

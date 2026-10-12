@@ -1,7 +1,6 @@
 /**
- * Multi-model LLM client with automatic failover
- * Uses LiteLLM for unified API across providers
- * Fallback chain: Grok → GPT-4 → Claude → Gemini
+ * Multi-model LLM client with automatic failover.
+ * Fallback chain: Grok → GPT-4o mini → Claude Haiku → Gemini.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -65,6 +64,9 @@ export interface ChatCompletionResult {
 class LLMClient {
   private cache = new Map<string, { content: string; timestamp: number }>();
   private cacheTTL = 60 * 60 * 1000; // 1 hour
+  // The worker process is long-lived. Expired entries were only dropped on
+  // read, so unique prompts accumulated for the life of the process.
+  private maxCacheEntries = 200;
 
   /**
    * Generate chat completion with automatic fallback
@@ -173,8 +175,7 @@ class LLMClient {
           throw new Error(`Unknown provider: ${provider.name}`);
         }
 
-        // Cache successful result
-        this.cache.set(cacheKey, { content, timestamp: Date.now() });
+        this.remember(cacheKey, content);
 
         console.log(`[LLMClient] ✓ ${provider.name} succeeded`);
 
@@ -208,6 +209,20 @@ class LLMClient {
    */
   clearCache(): void {
     this.cache.clear();
+  }
+
+  private remember(key: string, content: string) {
+    const now = Date.now();
+    for (const [cachedKey, cached] of this.cache) {
+      if (now - cached.timestamp >= this.cacheTTL) this.cache.delete(cachedKey);
+    }
+    this.cache.delete(key);
+    while (this.cache.size >= this.maxCacheEntries) {
+      const oldest = this.cache.keys().next().value;
+      if (!oldest) break;
+      this.cache.delete(oldest);
+    }
+    this.cache.set(key, { content, timestamp: now });
   }
 
   private getCacheKey(options: ChatCompletionOptions): string {

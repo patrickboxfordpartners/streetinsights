@@ -1,10 +1,8 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
-import { createClient } from "@supabase/supabase-js";
+import { createDb, db } from "../../db/server.js";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
-const REVIEWSNIPER_URL = process.env.REVIEWSNIPER_SUPABASE_URL;
-const REVIEWSNIPER_KEY = process.env.REVIEWSNIPER_SUPABASE_SERVICE_KEY;
+const REVIEWSNIPER_DATABASE_URL = process.env.REVIEWSNIPER_DATABASE_URL;
 
 export const generateReviewRoundup = inngest.createFunction(
   {
@@ -13,11 +11,11 @@ export const generateReviewRoundup = inngest.createFunction(
     triggers: [{ cron: "0 9 * * 1" }] // Mondays at 9am
   },
   async ({ step }) => {
-    if (!REVIEWSNIPER_URL || !REVIEWSNIPER_KEY) {
+    if (!REVIEWSNIPER_DATABASE_URL) {
       return { status: "skipped", reason: "ReviewSniper credentials not set" };
     }
 
-    const rsClient = createClient(REVIEWSNIPER_URL, REVIEWSNIPER_KEY);
+    const rsClient = createDb(REVIEWSNIPER_DATABASE_URL);
 
     // Fetch last week's review data
     const weekData = await step.run("fetch-week-data", async () => {
@@ -88,7 +86,7 @@ export const generateReviewRoundup = inngest.createFunction(
 
     // Save to content_drafts
     const saved = await step.run("save-draft", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("content_drafts")
         .insert({
           source: "reviewsniper",
@@ -103,7 +101,7 @@ export const generateReviewRoundup = inngest.createFunction(
         .select("id")
         .single();
 
-      if (error) throw error;
+      if (error || !data) throw error || new Error("Failed to save review roundup");
       return data;
     });
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useUrlState } from '../hooks/useUrlState'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { Activity, TrendingUp, TrendingDown, Award, Users, Download, Search } from 'lucide-react'
 import { formatPercent } from '../lib/utils'
 import { downloadCSV, downloadJSON } from '../lib/export'
@@ -38,7 +38,7 @@ export function SourceLeaderboard() {
         ? 'accuracy_rate'
         : 'total_predictions'
 
-    const { data } = await supabase
+    const { data } = await db
       .from('sources')
       .select('*')
       .gt('total_predictions', 0)

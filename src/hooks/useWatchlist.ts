@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { useAuth } from './useAuth'
 
 export function useWatchlist() {
@@ -9,7 +9,7 @@ export function useWatchlist() {
 
   useEffect(() => {
     if (!user) { setLoading(false); return }
-    (supabase as any)
+    (db as any)
       .from('user_watchlist')
       .select('ticker_id')
       .eq('user_id', user.id)
@@ -28,13 +28,13 @@ export function useWatchlist() {
       return next
     })
     if (isWatched) {
-      await (supabase as any)
+      await (db as any)
         .from('user_watchlist')
         .delete()
         .eq('user_id', user.id)
         .eq('ticker_id', tickerId)
     } else {
-      await (supabase as any)
+      await (db as any)
         .from('user_watchlist')
         .insert({ user_id: user.id, ticker_id: tickerId })
     }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../components/Toast";
 import { History } from "lucide-react";
@@ -54,7 +54,7 @@ export default function AlertPreferences() {
 
   const fetchPreferences = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("alert_preferences")
         .select("*")
         .eq("user_id", user!.id)
@@ -91,7 +91,7 @@ export default function AlertPreferences() {
     setSaving(true);
 
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from("alert_preferences")
         .upsert({
           ...preferences,

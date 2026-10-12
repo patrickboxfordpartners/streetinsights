@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 
 interface MarketCondition {
   ticker_id: string;
@@ -29,7 +29,7 @@ export const monitorMarketConditions = inngest.createFunction(
 
     // Get active tickers with recent activity
     const activeTickers = await step.run("fetch-active-tickers", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tickers")
         .select("id, symbol, avg_daily_mentions")
         .eq("is_active", true);
@@ -44,7 +44,7 @@ export const monitorMarketConditions = inngest.createFunction(
     for (const ticker of activeTickers) {
       const condition = await step.run(`analyze-${ticker.symbol}`, async () => {
         // Check mention velocity (mentions in last 15 min vs typical)
-        const { count: recentMentions } = await supabase
+        const { count: recentMentions } = await db
           .from("mentions")
           .select("*", { count: "exact", head: true })
           .eq("ticker_id", ticker.id)
@@ -55,13 +55,13 @@ export const monitorMarketConditions = inngest.createFunction(
         const mentionVelocity = (recentMentions || 0) / (expectedMentions || 1);
 
         // Check sentiment shift (last hour vs last 24 hours)
-        const { data: recentPredictions } = await supabase
+        const { data: recentPredictions } = await db
           .from("predictions")
           .select("sentiment")
           .eq("ticker_id", ticker.id)
           .gte("prediction_date", oneHourAgo.toISOString());
 
-        const { data: historicalPredictions } = await supabase
+        const { data: historicalPredictions } = await db
           .from("predictions")
           .select("sentiment")
           .eq("ticker_id", ticker.id)

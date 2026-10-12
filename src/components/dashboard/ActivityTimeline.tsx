@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Target, CheckCircle, Clock } from 'lucide-react'
-import { supabase } from '../../integrations/supabase/client'
+import { db } from '../../db/browser'
 import { formatDateTime } from '../../lib/utils'
 
 interface TimelineEvent {
@@ -18,7 +18,7 @@ export function ActivityTimeline() {
   useEffect(() => {
     fetchTimeline()
 
-    const subscription = supabase
+    const subscription = db
       .channel('timeline-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, () => fetchTimeline())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mention_frequency' }, () => fetchTimeline())
@@ -35,20 +35,20 @@ export function ActivityTimeline() {
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
 
     const [{ data: spikes }, { data: predictions }, { data: validations }] = await Promise.all([
-      supabase
+      db
         .from('mention_frequency')
         .select('date, mention_count, tickers (symbol)')
         .eq('spike_detected', true)
         .gte('date', twentyFourHoursAgo.toISOString())
         .order('date', { ascending: false })
         .limit(10),
-      supabase
+      db
         .from('predictions')
         .select('id, prediction_date, sentiment, tickers (symbol), sources (name)')
         .gte('prediction_date', twentyFourHoursAgo.toISOString())
         .order('prediction_date', { ascending: false })
         .limit(10),
-      supabase
+      db
         .from('validations')
         .select('validation_date, was_correct, predictions ( tickers (symbol) )')
         .gte('validation_date', twentyFourHoursAgo.toISOString())
