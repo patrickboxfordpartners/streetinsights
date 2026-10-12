@@ -45,7 +45,7 @@ curl -X POST http://localhost:3001/mcp \
 
 Should return all 9 tools. Tests MCP auth and tool registration.
 
-## NL Query Endpoint (requires SUPABASE_DB_URL)
+## NL Query Endpoint (requires DATABASE_URL)
 
 ```bash
 curl -X POST http://localhost:3001/api/query \

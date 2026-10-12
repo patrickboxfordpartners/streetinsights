@@ -30,7 +30,7 @@ export function SystemStatus({ lastScanTime }: SystemStatusProps) {
   }
 
   const apis = [
-    { name: 'Supabase', key: 'VITE_SUPABASE_URL', required: true },
+    { name: 'Neon', key: 'VITE_WORKER_URL', required: true },
     { name: 'NewsAPI', key: 'NEWS_API_KEY', required: false },
     { name: 'Grok AI', key: 'XAI_API_KEY', required: false },
     { name: 'Alpha Vantage', key: 'ALPHA_VANTAGE_API_KEY', required: false },

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { FileText, Copy, Check, Pencil, Trash2, X, ExternalLink, Activity } from 'lucide-react'
 import { formatDateTime } from '../lib/utils'
 
@@ -10,6 +10,7 @@ interface ContentDraft {
   title: string
   body: string
   metadata: Record<string, unknown>
+  status?: string
   published_at: string | null
   created_at: string
 }
@@ -41,7 +42,7 @@ export function ContentDrafts() {
   }, [])
 
   async function fetchDrafts() {
-    const { data } = await supabase
+    const { data } = await db
       .from('content_drafts')
       .select('*')
       .order('created_at', { ascending: false })
@@ -56,7 +57,7 @@ export function ContentDrafts() {
   async function saveDraft() {
     if (!editing) return
     setSaving(true)
-    const { error } = await supabase
+    const { error } = await db
       .from('content_drafts')
       .update({ body: editBody, updated_at: new Date().toISOString() })
       .eq('id', editing.id)
@@ -69,14 +70,14 @@ export function ContentDrafts() {
 
   async function deleteDraft(id: string) {
     setDeleting(id)
-    await supabase.from('content_drafts').delete().eq('id', id)
+    await db.from('content_drafts').delete().eq('id', id)
     setAllDrafts(d => d.filter(x => x.id !== id))
     setDeleting(null)
   }
 
   async function markPublished(id: string) {
-    await supabase.from('content_drafts').update({ status: 'published' }).eq('id', id)
-    setAllDrafts(d => d.map(x => x.id === id ? { ...x, status: 'published' } : x))
+    await db.from('content_drafts').update({ status: 'published', published_at: new Date().toISOString() }).eq('id', id)
+    setAllDrafts(d => d.map(x => x.id === id ? { ...x, status: 'published', published_at: new Date().toISOString() } : x))
   }
 
   function copyToClipboard(id: string, text: string) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { useAuth } from '../hooks/useAuth'
 import { Activity, TrendingUp, Star, Trophy } from 'lucide-react'
 import { formatNumber } from '../lib/utils'
@@ -44,7 +44,7 @@ export function PublicLeaderboard() {
   }, [user])
 
   async function fetchSources() {
-    const { data } = await supabase
+    const { data } = await db
       .from('sources')
       .select('id, name, username, platform, credibility_score, total_predictions, correct_predictions, accuracy_rate, reasoning_quality, verified, follower_count')
       .eq('is_active', true)
@@ -56,7 +56,7 @@ export function PublicLeaderboard() {
   }
 
   async function fetchFollows() {
-    const { data } = await (supabase as any)
+    const { data } = await (db as any)
       .from('source_follows')
       .select('source_id')
       .eq('user_id', user!.id)
@@ -71,10 +71,10 @@ export function PublicLeaderboard() {
     isFollowing ? next.delete(sourceId) : next.add(sourceId)
     setFollows(next)
     if (isFollowing) {
-      await (supabase as any).from('source_follows').delete()
+      await (db as any).from('source_follows').delete()
         .eq('user_id', user.id).eq('source_id', sourceId)
     } else {
-      await (supabase as any).from('source_follows').insert({ user_id: user.id, source_id: sourceId })
+      await (db as any).from('source_follows').insert({ user_id: user.id, source_id: sourceId })
     }
     setFollowLoading(null)
   }

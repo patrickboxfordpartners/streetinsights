@@ -4,7 +4,7 @@
 
 - **Frontend:** Vite + React 19 + TypeScript, deployed to Vercel
 - **Worker:** Express + Inngest + Mastra, deployed to Railway
-- **DB:** Supabase (Postgres) — project `xtyfljmwfwhzthwdhkly`
+- **DB:** Neon Postgres (`DATABASE_URL`) via `@neondatabase/serverless` and Drizzle. Browser queries go through the worker `POST /api/db`. See `db/MIGRATE_FROM_SUPABASE.md`.
 - **Package manager:** npm
 
 ## Commands

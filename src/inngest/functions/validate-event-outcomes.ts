@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 
 const SECTOR_ETF_MAP: Record<string, string> = {
   Technology: "XLK",
@@ -46,7 +46,7 @@ export const validateEventOutcomes = inngest.createFunction(
     // Find completed events that have scores but no validations
     const eventsToValidate = await step.run("fetch-events-to-validate", async () => {
       const yesterday = new Date(Date.now() - 48 * 3600000).toISOString();
-      const { data } = await supabase
+      const { data } = await db
         .from("government_events")
         .select("id, title, event_date")
         .eq("status", "upcoming")
@@ -63,7 +63,7 @@ export const validateEventOutcomes = inngest.createFunction(
     // Mark as completed
     await step.run("update-event-status", async () => {
       const ids = eventsToValidate.map((e) => e.id);
-      await supabase
+      await db
         .from("government_events")
         .update({ status: "completed" })
         .in("id", ids);
@@ -74,7 +74,7 @@ export const validateEventOutcomes = inngest.createFunction(
     for (const govEvent of eventsToValidate.slice(0, 5)) {
       await step.run(`validate-${govEvent.id}`, async () => {
         // Get the latest score
-        const { data: score } = await supabase
+        const { data: score } = await db
           .from("event_impact_scores")
           .select("*")
           .eq("event_id", govEvent.id)
@@ -84,7 +84,7 @@ export const validateEventOutcomes = inngest.createFunction(
         if (!score) return;
 
         // Check if already validated
-        const { data: existing } = await supabase
+        const { data: existing } = await db
           .from("event_validations")
           .select("id")
           .eq("event_id", govEvent.id)
@@ -166,7 +166,7 @@ export const validateEventOutcomes = inngest.createFunction(
               : "bearish"
             : "neutral";
 
-        await supabase.from("event_validations").insert({
+        await db.from("event_validations").insert({
           event_id: govEvent.id,
           score_id: score.id,
           actual_direction: actualDirection,

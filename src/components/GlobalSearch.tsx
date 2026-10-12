@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, TrendingUp, X } from "lucide-react";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 import { SkeletonSearchResult } from "./SkeletonLoader";
 
 interface Ticker {
@@ -59,7 +59,7 @@ export function GlobalSearch() {
 
     const searchTickers = async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data } = await db
         .from("tickers")
         .select("id, symbol, company_name, sector, avg_daily_mentions")
         .or(`symbol.ilike.%${query}%,company_name.ilike.%${query}%`)

@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
 
@@ -13,7 +13,7 @@ export const generateMarketPost = inngest.createFunction(
     // Get recent spikes (last 24h)
     const spikes = await step.run("fetch-recent-spikes", async () => {
       const since = new Date(Date.now() - 86400000).toISOString().split("T")[0]; // date only
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("mention_frequency")
         .select("*, tickers(symbol, company_name)")
         .eq("spike_detected", true)
@@ -35,7 +35,7 @@ export const generateMarketPost = inngest.createFunction(
         (s.tickers as Record<string, unknown>)?.symbol
       ).filter(Boolean);
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("predictions")
         .select("ticker_symbol, direction, confidence, rationale")
         .in("ticker_symbol", tickerIds)
@@ -118,7 +118,7 @@ export const generateMarketPost = inngest.createFunction(
 
     // Save both drafts
     const saved = await step.run("save-drafts", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("content_drafts")
         .insert([
           { source: "market-signals", type: "linkedin", title, body: linkedinDraft, metadata: draftMeta },
@@ -126,7 +126,7 @@ export const generateMarketPost = inngest.createFunction(
         ])
         .select("id");
 
-      if (error) throw error;
+      if (error || !data) throw error || new Error("Failed to save market drafts");
       return data;
     });
 

@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 
 const UNUSUAL_WHALES_API_KEY = process.env.UNUSUAL_WHALES_API_KEY;
 
@@ -77,7 +77,7 @@ export const scanOptionsFlow = inngest.createFunction(
     }
 
     const tickers = await step.run("fetch-active-tickers", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tickers")
         .select("id, symbol")
         .eq("is_active", true)
@@ -118,7 +118,7 @@ export const scanOptionsFlow = inngest.createFunction(
         source: "unusualwhales",
       }));
 
-      const { error } = await supabase.from("options_flow").insert(records);
+      const { error } = await db.from("options_flow").insert(records);
       if (!error) {
         totalInserted += records.length;
         unusualTickers.push(ticker.symbol);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { TrendingUp, Users, FileText, CheckCircle, Radio, Star, AlertTriangle } from 'lucide-react'
 import { formatNumber, formatDateTime } from '../lib/utils'
 import { SystemStatus } from '../components/dashboard/SystemStatus'
@@ -63,7 +63,7 @@ export function Overview() {
 
   async function fetchWatchlistTickers() {
     const ids = Array.from(watchlist)
-    const { data } = await supabase
+    const { data } = await db
       .from('tickers')
       .select('id, symbol, company_name')
       .in('id', ids)
@@ -74,14 +74,14 @@ export function Overview() {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 3)
 
-    const enriched = await Promise.all(data.map(async t => {
-      const { count } = await supabase
+    const enriched = await Promise.all(data.map(async (t: any) => {
+      const { count } = await db
         .from('mentions')
         .select('*', { count: 'exact', head: true })
         .eq('ticker_id', t.id)
         .gte('mentioned_at', thirtyDaysAgo.toISOString())
 
-      const { data: freq } = await supabase
+      const { data: freq } = await db
         .from('mention_frequency')
         .select('spike_detected')
         .eq('ticker_id', t.id)
@@ -100,7 +100,7 @@ export function Overview() {
   }
 
   useEffect(() => {
-    const subscription = supabase
+    const subscription = db
       .channel('mentions-changes')
       .on(
         'postgres_changes',
@@ -119,10 +119,10 @@ export function Overview() {
 
   async function fetchStats() {
     const [mentions, sources, predictions, validated] = await Promise.all([
-      supabase.from('mentions').select('*', { count: 'exact', head: true }),
-      supabase.from('sources').select('*', { count: 'exact', head: true }),
-      supabase.from('predictions').select('*', { count: 'exact', head: true }),
-      supabase.from('validations').select('*', { count: 'exact', head: true }),
+      db.from('mentions').select('*', { count: 'exact', head: true }),
+      db.from('sources').select('*', { count: 'exact', head: true }),
+      db.from('predictions').select('*', { count: 'exact', head: true }),
+      db.from('validations').select('*', { count: 'exact', head: true }),
     ])
 
     setStats({
@@ -135,7 +135,7 @@ export function Overview() {
   }
 
   async function fetchRecentMentions() {
-    const { data } = await supabase
+    const { data } = await db
       .from('mentions')
       .select(
         `

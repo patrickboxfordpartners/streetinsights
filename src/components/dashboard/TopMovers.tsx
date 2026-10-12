@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TrendingUp, TrendingDown, Flame } from 'lucide-react'
-import { supabase } from '../../integrations/supabase/client'
+import { db } from '../../db/browser'
 
 interface Mover {
   ticker_symbol: string
@@ -23,7 +23,7 @@ export function TopMovers() {
     const oneDayAgo = new Date()
     oneDayAgo.setDate(oneDayAgo.getDate() - 1)
 
-    const { data: predictions } = await supabase
+    const { data: predictions } = await db
       .from('predictions')
       .select(
         `
@@ -38,7 +38,7 @@ export function TopMovers() {
     if (predictions) {
       const tickerMap = new Map<string, any>()
 
-      predictions.forEach((p: any) => {
+      predictions.forEach((p: { prediction_date: string; sentiment: string; tickers?: { symbol?: string } | null; sources?: { credibility_score?: number } | null }) => {
         const symbol = p.tickers?.symbol
         if (!symbol) return
 

@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import {
   runDebateAnalysis,
   runQuickAnalysis,
@@ -17,7 +17,7 @@ export const extractPredictions = inngest.createFunction(
   async ({ event, step }) => {
     // Get unprocessed mentions
     const unprocessedMentions = await step.run("fetch-unprocessed-mentions", async () => {
-      let query = supabase
+      let query = db
         .from("mentions")
         .select("id, ticker_id, source_id, content, platform, url, mentioned_at")
         .eq("processed", false)
@@ -41,7 +41,7 @@ export const extractPredictions = inngest.createFunction(
     // Fetch ticker symbols upfront for context building
     const tickerIds = [...new Set(unprocessedMentions.map((m) => m.ticker_id))];
     const tickerMap = await step.run("fetch-ticker-symbols", async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("tickers")
         .select("id, symbol")
         .in("id", tickerIds);
@@ -80,7 +80,7 @@ export const extractPredictions = inngest.createFunction(
           await storePrediction(result.mention, result.verdict, symbol, highConfidencePredictions);
           if (result.verdict.is_prediction) predictionsCreated++;
         }
-        await supabase
+        await db
           .from("mentions")
           .update({ processed: true, is_prediction: result.verdict?.is_prediction || false })
           .eq("id", result.mention.id);
@@ -117,7 +117,7 @@ export const extractPredictions = inngest.createFunction(
               await storePrediction(mention, verdict, symbol, highConfidencePredictions);
               if (verdict.is_prediction) predictionsCreated++;
             }
-            await supabase
+            await db
               .from("mentions")
               .update({ processed: true, is_prediction: verdict?.is_prediction || false })
               .eq("id", mention.id);
@@ -159,7 +159,7 @@ async function storePrediction(
 ) {
   if (!verdict.is_prediction || !verdict.sentiment || !mention.source_id) return;
 
-  const { data: newPrediction, error } = await supabase
+  const { data: newPrediction, error } = await db
     .from("predictions")
     .insert({
       ticker_id: mention.ticker_id,
@@ -195,7 +195,7 @@ async function storePrediction(
     highConfidencePredictions.push({ id: newPrediction[0].id, symbol });
   }
 
-  await supabase
+  await db
     .from("sources")
     .update({
       uses_data_sources: (verdict.data_sources_cited?.length ?? 0) > 0,

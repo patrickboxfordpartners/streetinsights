@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { fetchPriceMovement } from "../../lib/ml-features.js";
 import { calculateMetrics } from "../../lib/ml-model.js";
 
@@ -15,7 +15,7 @@ export const validateMLPredictions = inngest.createFunction(
 
     // Find predictions where target_date has passed and not yet validated
     const pendingValidations = await step.run("fetch-pending-validations", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("model_predictions")
         .select("*, tickers(symbol)")
         .lte("target_date", todayStr)
@@ -74,7 +74,7 @@ export const validateMLPredictions = inngest.createFunction(
     // Update predictions with validation results
     await step.run("store-validation-results", async () => {
       for (const validation of validations) {
-        await supabase
+        await db
           .from("model_predictions")
           .update({
             actual_direction: validation.actual_direction,
@@ -89,7 +89,7 @@ export const validateMLPredictions = inngest.createFunction(
     // Calculate overall model performance
     const metrics = await step.run("calculate-metrics", async () => {
       // Fetch all validated predictions for this model version
-      const { data: allValidated } = await supabase
+      const { data: allValidated } = await db
         .from("model_predictions")
         .select("prediction_direction, actual_direction, model_type, model_version")
         .not("validated_at", "is", null)
@@ -121,7 +121,7 @@ export const validateMLPredictions = inngest.createFunction(
     if (metrics) {
       await step.run("update-model-metrics", async () => {
         for (const [modelType, modelMetrics] of Object.entries(metrics)) {
-          await supabase
+          await db
             .from("model_configs")
             .upsert(
               {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useUrlState } from '../hooks/useUrlState'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { Activity, TrendingUp, TrendingDown, Minus, CheckCircle, XCircle, Clock, Target, Download, Search } from 'lucide-react'
 import { formatDateTime } from '../lib/utils'
 import { downloadCSV, downloadJSON } from '../lib/export'
@@ -34,7 +34,7 @@ export function PredictionsTracker() {
   }, [filter])
 
   async function fetchPredictions() {
-    const { data } = await supabase
+    const { data } = await db
       .from('predictions')
       .select(
         `
@@ -76,9 +76,9 @@ export function PredictionsTracker() {
 
       const filtered =
         filter === 'pending'
-          ? formatted.filter((p) => !p.validated)
+          ? formatted.filter((p: any) => !p.validated)
           : filter === 'validated'
-          ? formatted.filter((p) => p.validated)
+          ? formatted.filter((p: any) => p.validated)
           : formatted
 
       setPredictions(filtered)

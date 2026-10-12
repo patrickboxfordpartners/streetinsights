@@ -87,7 +87,7 @@ worker.ts /api/query
   → src/lib/nl-query.ts::naturalLanguageToSQL(question)
       → llmClient.chat() with SCHEMA prompt → SELECT SQL string
   → isSafeQuery(sql) — blocks non-SELECT
-  → pg Pool query against Supabase Postgres (SUPABASE_DB_URL, port 6543)
+  → rawQuery() against Neon (`DATABASE_URL`, HTTP driver)
   → src/lib/nl-query.ts::explainSQL() → plain-English explanation
   → returns { sql, results: { rows, columns }, explanation }
 ```

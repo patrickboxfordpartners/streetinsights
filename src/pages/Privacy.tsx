@@ -33,7 +33,7 @@ export default function Privacy() {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-3">Third-Party Service Providers</h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong>Supabase</strong> — database infrastructure</li>
+            <li><strong>Neon</strong> — database infrastructure</li>
             <li><strong>Clerk</strong> — authentication and identity management</li>
             <li><strong>xAI / Grok</strong> — AI-powered sentiment analysis features</li>
             <li><strong>Alpha Vantage</strong> — financial market data</li>
