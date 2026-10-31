@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { sendEmail, sendWebhook } from "../../lib/email.js";
 
 interface MarketCondition {
@@ -36,7 +36,7 @@ export const generateMultiSignalAlerts = inngest.createFunction(
 
     // Get alert preferences for users who have advanced alerts enabled
     const alertPrefs = await step.run("fetch-alert-preferences", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("alert_preferences")
         .select("*")
         .or("spike_alerts_enabled.eq.true,prediction_alerts_enabled.eq.true");
@@ -55,7 +55,7 @@ export const generateMultiSignalAlerts = inngest.createFunction(
 
       for (const condition of conditions) {
         // Get recent high-credibility predictions
-        const { data: predictions } = await supabase
+        const { data: predictions } = await db
           .from("predictions")
           .select(`
             *,
@@ -72,7 +72,7 @@ export const generateMultiSignalAlerts = inngest.createFunction(
           .limit(5);
 
         // Get mention spike data
-        const { data: spikeData } = await supabase
+        const { data: spikeData } = await db
           .from("mention_frequency")
           .select("*")
           .eq("ticker_id", condition.ticker_id)
@@ -99,7 +99,7 @@ export const generateMultiSignalAlerts = inngest.createFunction(
       if (relevantConditions.length === 0) continue;
 
       for (const condition of relevantConditions) {
-        const signals = [];
+        const signals: string[] = [];
         if (condition.volume_spike) signals.push("volume spike");
         if (condition.sentiment_shift) signals.push("sentiment shift");
         if (condition.mention_pattern_unusual) signals.push("unusual mention pattern");
@@ -108,7 +108,10 @@ export const generateMultiSignalAlerts = inngest.createFunction(
 
         const topPredictors = condition.top_predictions
           .slice(0, 3)
-          .map((p: any) => `• ${p.sources.name} (${p.sources.accuracy_rate}% accurate): ${p.sentiment}`)
+          .map((p) => {
+            const source = (p as { sources?: { name?: string; accuracy_rate?: number }; sentiment?: string }).sources;
+            return `• ${source?.name} (${source?.accuracy_rate}% accurate): ${(p as { sentiment?: string }).sentiment}`;
+          })
           .join("\n");
 
         const message = `
@@ -166,7 +169,7 @@ This is a correlated signal - multiple indicators are aligning.
           }
 
           // Log the alert
-          const { error: logError } = await supabase.from("alert_log").insert({
+          const { error: logError } = await db.from("alert_log").insert({
             alert_type: "multi_signal",
             user_id: pref.user_id,
             ticker_symbol: condition.symbol,

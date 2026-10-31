@@ -46,9 +46,9 @@ Real bugs and footguns found in this codebase. Read before touching Danger Zones
 
 **Risk:** Only a problem if the conflict constraint is ever removed or changed.
 
-## 7. Supabase anon key is public — RLS is the security boundary
+## 7. DATABASE_URL is server-only
 
-The `VITE_SUPABASE_ANON_KEY` is embedded in the frontend bundle and visible to anyone. Row Level Security (RLS) policies in Supabase are what prevent unauthorized data access. Never put sensitive data in Supabase without a corresponding RLS policy.
+The browser must not receive `DATABASE_URL`. Pages talk to `POST /api/db` on the worker. `src/db/guard.ts` allowlists tables and stamps the Clerk user id on user-owned rows. Do not import `src/db/server.ts` from a React component. Neon has no realtime channel; the browser client polls every 30 seconds.
 
 ## 8. Yahoo Finance is unofficial and may silently break
 

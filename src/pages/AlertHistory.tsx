@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 import { useAuth } from "../hooks/useAuth";
 import { Calendar, Mail, Webhook, AlertCircle, CheckCircle, Clock } from "lucide-react";
 
@@ -31,7 +31,7 @@ export default function AlertHistory() {
 
   const fetchAlerts = async () => {
     try {
-      let query = supabase
+      let query = db
         .from("alert_log")
         .select("*")
         .eq("user_id", user!.id)

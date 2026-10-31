@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 
 export const detectSpikes = inngest.createFunction(
   {
@@ -12,7 +12,7 @@ export const detectSpikes = inngest.createFunction(
 
     // Get active tickers
     const activeTickers = await step.run("fetch-active-tickers", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tickers")
         .select("id, symbol, avg_daily_mentions, mention_spike_threshold")
         .eq("is_active", true);
@@ -27,7 +27,7 @@ export const detectSpikes = inngest.createFunction(
 
       for (const ticker of activeTickers) {
         // Count today's mentions
-        const { count, error } = await supabase
+        const { count, error } = await db
           .from("mentions")
           .select("*", { count: "exact", head: true })
           .eq("ticker_id", ticker.id)
@@ -40,7 +40,7 @@ export const detectSpikes = inngest.createFunction(
         }
 
         // Count unique sources
-        const { data: uniqueSources } = await supabase
+        const { data: uniqueSources } = await db
           .from("mentions")
           .select("source_id")
           .eq("ticker_id", ticker.id)
@@ -48,7 +48,7 @@ export const detectSpikes = inngest.createFunction(
           .lt("mentioned_at", `${today}T23:59:59Z`);
 
         const uniqueSourceCount = new Set(
-          uniqueSources?.map(s => s.source_id).filter(Boolean)
+          uniqueSources?.map((s) => s.source_id).filter(Boolean)
         ).size;
 
         // Calculate average sentiment (placeholder - will implement after sentiment extraction)
@@ -83,7 +83,7 @@ export const detectSpikes = inngest.createFunction(
         spike_detected: agg.spikeDetected,
       }));
 
-      const { error } = await supabase
+      const { error } = await db
         .from("mention_frequency")
         .upsert(records, { onConflict: "ticker_id,date" });
 
@@ -102,7 +102,7 @@ export const detectSpikes = inngest.createFunction(
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const { data: history } = await supabase
+        const { data: history } = await db
           .from("mention_frequency")
           .select("mention_count")
           .eq("ticker_id", ticker.id)
@@ -113,7 +113,7 @@ export const detectSpikes = inngest.createFunction(
             history.reduce((sum, h) => sum + h.mention_count, 0) / history.length
           );
 
-          await supabase
+          await db
             .from("tickers")
             .update({ avg_daily_mentions: avg })
             .eq("id", ticker.id);

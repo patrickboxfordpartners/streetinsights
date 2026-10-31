@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 
 export interface GovernmentEventWithScore {
   id: string;
@@ -41,7 +41,7 @@ export function useGovernmentEvents(range: DateRange = "7d") {
     const fromDate = new Date(Date.now() - 2 * 86400000).toISOString(); // include 2 days back for context
     const toDate = new Date(Date.now() + days * 86400000).toISOString();
 
-    const { data: eventsData } = await supabase
+    const { data: eventsData } = await db
       .from("government_events")
       .select("*")
       .gte("event_date", fromDate)
@@ -56,13 +56,13 @@ export function useGovernmentEvents(range: DateRange = "7d") {
 
     // Fetch latest scores for these events
     const eventIds = eventsData.map((e) => e.id);
-    const { data: scoresData } = await supabase
+    const { data: scoresData } = await db
       .from("event_impact_scores")
       .select("*")
       .in("event_id", eventIds)
       .eq("is_latest", true);
 
-    const scoreMap = new Map(
+    const scoreMap = new Map<string, any>(
       (scoresData || []).map((s) => [s.event_id, s])
     );
 
@@ -96,7 +96,7 @@ export function useGovernmentEvents(range: DateRange = "7d") {
     setEvents(merged);
 
     // Fetch rolling accuracy
-    const { data: validations } = await supabase
+    const { data: validations } = await db
       .from("event_validations")
       .select("overall_score")
       .order("validated_at", { ascending: false })

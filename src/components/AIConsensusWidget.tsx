@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Brain, TrendingUp, TrendingDown, ArrowRight, Sparkles } from "lucide-react";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 import { Skeleton } from "./SkeletonLoader";
 
 interface AgentChange {
@@ -36,7 +36,7 @@ export function AIConsensusWidget() {
     setLoading(true);
 
     // Get recent analyses grouped by ticker
-    const { data: analyses } = await supabase
+    const { data: analyses } = await db
       .from("ai_agent_analyses")
       .select(
         `

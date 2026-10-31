@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { predict, calculateMetrics, DEFAULT_MODEL_CONFIG, type ModelConfig } from "../../lib/ml-model.js";
 import type { FeatureVector } from "../../lib/ml-features.js";
 
@@ -36,7 +36,7 @@ export const retrainModel = inngest.createFunction(
   async ({ step }) => {
     // Load training data from validated model predictions
     const trainingSamples = await step.run("load-training-data", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("model_training_data")
         .select("features, target_direction, observation_date")
         .not("target_direction", "is", null)
@@ -44,8 +44,8 @@ export const retrainModel = inngest.createFunction(
         .limit(500);
 
       if (error) throw error;
-      return (data || []).map(row => ({
-        features: row.features as FeatureVector,
+      return (data || []).map((row) => ({
+        features: row.features as unknown as FeatureVector,
         actual_direction: row.target_direction as "up" | "down" | "neutral",
       }));
     });
@@ -59,7 +59,7 @@ export const retrainModel = inngest.createFunction(
 
     // Load current active model config
     const currentConfig = await step.run("load-current-config", async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("model_configs")
         .select("config, version")
         .eq("model_type", "price_movement_24h")
@@ -69,7 +69,7 @@ export const retrainModel = inngest.createFunction(
         .single();
 
       if (data?.config) {
-        return data.config as ModelConfig;
+        return data.config as unknown as ModelConfig;
       }
       return DEFAULT_MODEL_CONFIG;
     });
@@ -135,7 +135,7 @@ export const retrainModel = inngest.createFunction(
 
     // Calculate full metrics
     const fullMetrics = await step.run("calculate-full-metrics", async () => {
-      const pairs = trainingSamples.map(s => ({
+      const pairs = trainingSamples.map((s) => ({
         predicted: predict(s.features, newConfig.config).direction,
         actual: s.actual_direction,
       }));
@@ -148,14 +148,14 @@ export const retrainModel = inngest.createFunction(
 
     await step.run("save-new-config", async () => {
       // Deactivate current config
-      await supabase
+      await db
         .from("model_configs")
         .update({ is_active: false })
         .eq("model_type", "price_movement_24h")
         .eq("is_active", true);
 
       // Insert new config
-      await supabase.from("model_configs").insert({
+      await db.from("model_configs").insert({
         model_type: "price_movement_24h",
         model_version: newVersion,
         config: { ...newConfig.config, version: newVersion },

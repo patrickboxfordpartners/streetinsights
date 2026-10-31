@@ -50,7 +50,7 @@ TREE_ANNOTATIONS: dict[str, str | None] = {
     "src": "Frontend SPA (React/Vite) + backend logic",
     "worker.ts": "Railway worker entrypoint (Express + Inngest)",
     "inngest": "Inngest cron functions (scan, predict, validate)",
-    "integrations": "External service clients (Supabase, LLM, news, gov)",
+    "integrations": "External service clients (LLM, news, gov)",
     "lib": "Pure logic — ML model, features, indicators, NL query",
     "mcp": "MCP server exposing 9 signal tools",
     "mastra": "Mastra AI workflow definitions",
@@ -58,7 +58,7 @@ TREE_ANNOTATIONS: dict[str, str | None] = {
     "components": "Shared UI components",
     "hooks": "React hooks (auth, data fetching, URL state)",
     "docs": "Agent-facing docs (markdown-to-agents endpoints)",
-    "supabase": "Supabase schema migrations",
+    "db": "Neon query client, Drizzle schema, and SQL migrations",
     "scripts": "Atlas generator and utilities",
 }
 
@@ -463,8 +463,8 @@ def generate_repo_map() -> str:
 | Change reasoning validation | `src/lib/reasoning-validator.ts` |
 | Change Mastra workflow steps | `src/mastra/workflows/generate-predictions.ts` |
 | Change NL query safety or schema | `src/lib/nl-query.ts` — `isSafeQuery()` and `SCHEMA` constant |
-| Update Supabase schema | `supabase/migrations/` (new file) → sync `src/integrations/supabase/types.ts` |
-| Change Stripe billing | `supabase/functions/stripe-checkout/` and `supabase/functions/stripe-webhook/` |
+| Update the database schema | `db/migrations/` and `src/db/schema.ts` |
+| Change Stripe billing | `src/server/routes.ts` (`/api/billing/checkout` and `/api/billing/webhook`) |
 | Change URL filter state | `src/hooks/useUrlState.ts` |
 | Add a government data source | `src/integrations/government/` — new fetcher + register in `aggregator.ts` |
 | Debug a failing cron | Inngest dashboard → `src/inngest/functions/<name>.ts` |
@@ -474,11 +474,11 @@ def generate_repo_map() -> str:
 
 | File/Area | Why It's Fragile |
 |-----------|-----------------|
-| `src/integrations/supabase/types.ts` | Reflects DB schema — must stay in sync with migrations; mismatches cause silent runtime failures |
+| `src/db/guard.ts` | Browser query allowlist. A mistake here exposes or blocks tables. `DATABASE_URL` stays on the worker. |
 | `src/inngest/functions/index.ts` | Every function must be exported here — missing export = silent cron failure, no error shown |
 | `worker.ts` | Single Express process for Inngest + MCP + all API routes — unhandled error crashes the whole worker |
 | `src/lib/debate-analysis-v2.ts` | Has `// @ts-nocheck` — type errors are silent; always test manually after changes |
-| `supabase/migrations/` | Applied in order against production; bad migration requires manual rollback via Supabase dashboard |
+| `db/migrations/0001_init.sql` | Applied by the owner to Neon. Do not run it against a database you cannot replace. |
 | `src/mastra/workflows/generate-predictions.ts` | Called inside Inngest step — if it throws, Inngest retries and may double-store predictions (upsert saves this) |
 | `src/integrations/llm/client.ts` | Fallback chain affects cost and latency across every LLM caller in the codebase |
 | `DOCS_DIR` constant in `worker.ts` | Must stay at module top-level — if moved between route registrations, routes after it silently fail to register |

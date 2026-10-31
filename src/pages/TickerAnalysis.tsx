@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useUrlState } from '../hooks/useUrlState'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { Activity, TrendingUp, AlertTriangle, Plus, X, Edit2, Trash2, Upload, Star } from 'lucide-react'
 import { formatNumber, formatDate } from '../lib/utils'
 import { AreaChart, Area, ResponsiveContainer } from 'recharts'
@@ -68,7 +68,7 @@ export function TickerAnalysis() {
     setAddingTicker(true)
     const symbol = newSymbol.trim().toUpperCase()
 
-    const { error } = await supabase.from('tickers').insert({
+    const { error } = await db.from('tickers').insert({
       symbol,
       company_name: newCompanyName.trim() || null,
       sector: newSector.trim() || null,
@@ -102,7 +102,7 @@ export function TickerAnalysis() {
     if (!editingTicker) return
 
     setUpdatingTicker(true)
-    const { error } = await supabase
+    const { error } = await db
       .from('tickers')
       .update({
         company_name: editCompanyName.trim() || null,
@@ -131,7 +131,7 @@ export function TickerAnalysis() {
     if (!tickerToDelete) return
 
     setDeletingTicker(true)
-    const { error } = await supabase
+    const { error } = await db
       .from('tickers')
       .update({ is_active: false })
       .eq('id', tickerToDelete.id)
@@ -165,12 +165,12 @@ export function TickerAnalysis() {
     }
 
     // Check which symbols already exist
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('tickers')
       .select('symbol')
       .in('symbol', symbols)
 
-    const existingSymbols = new Set((existing || []).map(t => t.symbol))
+    const existingSymbols = new Set((existing || []).map((t: any) => t.symbol))
     const newSymbols = symbols.filter(s => !existingSymbols.has(s))
 
     if (newSymbols.length === 0) {
@@ -180,7 +180,7 @@ export function TickerAnalysis() {
     }
 
     // Insert new tickers
-    const { error } = await supabase.from('tickers').insert(
+    const { error } = await db.from('tickers').insert(
       newSymbols.map(symbol => ({
         symbol,
         is_active: true,
@@ -205,7 +205,7 @@ export function TickerAnalysis() {
   }
 
   async function fetchTickers() {
-    const { data } = await supabase
+    const { data } = await db
       .from('tickers')
       .select('id, symbol, company_name, sector, avg_daily_mentions, is_active')
       .eq('is_active', true)
@@ -216,7 +216,7 @@ export function TickerAnalysis() {
       const fourteenDaysAgo = new Date()
       fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
 
-      const { data: frequencyData } = await supabase
+      const { data: frequencyData } = await db
         .from('mention_frequency')
         .select('ticker_id, date, mention_count, spike_detected')
         .gte('date', fourteenDaysAgo.toISOString().split('T')[0])
@@ -241,13 +241,13 @@ export function TickerAnalysis() {
       }
 
       const tickerStats = await Promise.all(
-        data.map(async (ticker) => {
-          const { count } = await supabase
+        data.map(async (ticker: any) => {
+          const { count } = await db
             .from('mentions')
             .select('*', { count: 'exact', head: true })
             .eq('ticker_id', ticker.id)
 
-          const { data: lastMention } = await supabase
+          const { data: lastMention } = await db
             .from('mentions')
             .select('mentioned_at')
             .eq('ticker_id', ticker.id)

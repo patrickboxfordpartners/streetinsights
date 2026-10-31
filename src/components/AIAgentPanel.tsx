@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Minus, Brain, AlertCircle, CheckCircle2 } from "lucide-react";
-import { getTickerAgentAnalyses, type AgentAnalysis } from "../lib/ai-agents";
+import { getTickerAgentAnalyses, type AgentAnalysis } from "../lib/ai-agent-reads";
 
 interface AIAgentPanelProps {
   tickerId: string;

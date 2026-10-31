@@ -13,7 +13,7 @@
  */
 
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { fetchMarketSentiment } from "../../integrations/adanos/client.js";
 import type { MarketSentimentSnapshot, SentimentSourceSnapshot } from "../../integrations/adanos/types.js";
 
@@ -38,7 +38,7 @@ export const scanAdanosSentiment = inngest.createFunction(
     // 1. Fetch active tickers
     // -------------------------------------------------------------------------
     const activeTickers = await step.run("fetch-active-tickers", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tickers")
         .select("id, symbol")
         .eq("is_active", true);
@@ -89,7 +89,7 @@ export const scanAdanosSentiment = inngest.createFunction(
         { name: "Adanos — Polymarket", platform: "adanos", username: "polymarket", source_type: "publication" },
       ];
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("sources")
         .upsert(sourceRecords, { onConflict: "platform,username" })
         .select("id, username");
@@ -156,7 +156,7 @@ export const scanAdanosSentiment = inngest.createFunction(
 
       if (mentionsToStore.length === 0) return { stored: 0 };
 
-      const { error } = await supabase
+      const { error } = await db
         .from("mentions")
         .insert(mentionsToStore);
 
@@ -192,7 +192,7 @@ export const scanAdanosSentiment = inngest.createFunction(
       // Upsert — only update the sentiment column if a row already exists
       // from the main scan-mentions function (which owns mention_count).
       for (const u of updates) {
-        await supabase
+        await db
           .from("mention_frequency")
           .upsert(
             { ticker_id: u.ticker_id, date: u.date, avg_sentiment_score: u.avg_sentiment_score },
@@ -208,7 +208,7 @@ export const scanAdanosSentiment = inngest.createFunction(
       const okCount = snapshots.filter((s) => s.status === "ok").length;
       const unavailableCount = snapshots.filter((s) => s.status === "unavailable").length;
 
-      await supabase.from("scan_log").insert({
+      await db.from("scan_log").insert({
         scan_type: "adanos",
         status: "success",
         mentions_found: stored.stored,

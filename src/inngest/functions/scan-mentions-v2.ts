@@ -4,7 +4,7 @@
  */
 
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { newsAggregator } from "../../integrations/news/index.js";
 
 // Re-import existing types and logic from scan-mentions.ts
@@ -76,7 +76,7 @@ export const scanMentionsV2 = inngest.createFunction(
   async ({ step }) => {
     // Get active tickers
     const activeTickers = await step.run("fetch-active-tickers", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tickers")
         .select("id, symbol")
         .eq("is_active", true);
@@ -89,7 +89,7 @@ export const scanMentionsV2 = inngest.createFunction(
       return { message: "No active tickers to scan" };
     }
 
-    const tickerSymbols = activeTickers.map((t) => t.symbol);
+    const tickerSymbols: string[] = activeTickers.map((t) => t.symbol);
 
     // Twitter mentions (Pro tier required)
     const twitterMentions: TwitterMention[] = [];
@@ -341,7 +341,7 @@ export const scanMentionsV2 = inngest.createFunction(
         const batchSize = 50;
         for (let i = 0; i < platformUsernames.length; i += batchSize) {
           const batch = platformUsernames.slice(i, i + batchSize);
-          await supabase
+          await db
             .from("sources")
             .upsert(batch.map(s => ({
               name: s.username,
@@ -362,7 +362,7 @@ export const scanMentionsV2 = inngest.createFunction(
           // Batch usernames to avoid URL length limits
           for (let i = 0; i < usernames.length; i += 100) {
             const chunk = usernames.slice(i, i + 100);
-            const { data } = await supabase
+            const { data } = await db
               .from("sources")
               .select("id, platform, username")
               .eq("platform", platform)
@@ -376,7 +376,7 @@ export const scanMentionsV2 = inngest.createFunction(
       for (const msg of stockTwitsMentions) {
         const tickers = extractTickers(msg.body || "", tickerSymbols);
         for (const symbol of tickers) {
-          const ticker = activeTickers.find(t => t.symbol === symbol);
+          const ticker = activeTickers.find((t) => t.symbol === symbol);
           const sourceId = sourceMap.get(`stocktwits:${msg.user?.username || "unknown"}`);
           if (!ticker || !sourceId) continue;
           mentionsToStore.push({
@@ -396,7 +396,7 @@ export const scanMentionsV2 = inngest.createFunction(
         const text = `${post.title || ""} ${post.selftext || ""}`;
         const tickers = extractTickers(text, tickerSymbols);
         for (const symbol of tickers) {
-          const ticker = activeTickers.find(t => t.symbol === symbol);
+          const ticker = activeTickers.find((t) => t.symbol === symbol);
           const sourceId = sourceMap.get(`reddit:${post.author || "unknown"}`);
           if (!ticker || !sourceId) continue;
           mentionsToStore.push({
@@ -419,7 +419,7 @@ export const scanMentionsV2 = inngest.createFunction(
         const sourceId = sourceMap.get(`news:${sourceName}`);
         const tickers = extractTickers(`${article.title} ${article.description || ""}`, tickerSymbols);
         for (const symbol of tickers) {
-          const ticker = activeTickers.find(t => t.symbol === symbol);
+          const ticker = activeTickers.find((t) => t.symbol === symbol);
           if (!ticker || !sourceId) continue;
           mentionsToStore.push({
             ticker_id: ticker.id,
@@ -437,7 +437,7 @@ export const scanMentionsV2 = inngest.createFunction(
       for (const article of finnhubArticles) {
         const sourceId = sourceMap.get(`finnhub:${article.source || "unknown"}`);
         const symbol = article.related || "";
-        const ticker = activeTickers.find(t => t.symbol === symbol);
+        const ticker = activeTickers.find((t) => t.symbol === symbol);
         if (!ticker || !sourceId) continue;
         mentionsToStore.push({
           ticker_id: ticker.id,
@@ -459,7 +459,7 @@ export const scanMentionsV2 = inngest.createFunction(
         const tickerSentiments: any[] = article.ticker_sentiment || [];
         for (const ts of tickerSentiments) {
           const symbol = ts.ticker;
-          const ticker = activeTickers.find(t => t.symbol === symbol);
+          const ticker = activeTickers.find((t) => t.symbol === symbol);
           if (!ticker || !sourceId) continue;
           mentionsToStore.push({
             ticker_id: ticker.id,
@@ -489,7 +489,7 @@ export const scanMentionsV2 = inngest.createFunction(
         // Insert in batches of 50 to avoid one bad row killing the whole insert
         for (let i = 0; i < mentionsToStore.length; i += 50) {
           const batch = mentionsToStore.slice(i, i + 50);
-          const { error, count } = await supabase.from("mentions").insert(batch).select("id", { count: "exact", head: true });
+          const { error, count } = await db.from("mentions").insert(batch).select("id", { count: "exact", head: true });
           if (error) {
             if (error.code === "23505") {
               // Duplicates — expected, skip
@@ -514,7 +514,7 @@ export const scanMentionsV2 = inngest.createFunction(
         { scan_type: "finnhub", status: !FINNHUB_API_KEY ? "skipped" : "success", mentions_found: finnhubArticles.length, error_message: !FINNHUB_API_KEY ? "Finnhub key not configured" : null, completed_at: new Date().toISOString() },
         { scan_type: "alphavantage", status: !ALPHA_VANTAGE_API_KEY ? "skipped" : "success", mentions_found: avArticles.length, error_message: !ALPHA_VANTAGE_API_KEY ? "Alpha Vantage key not configured" : null, completed_at: new Date().toISOString() },
       ];
-      await supabase.from("scan_log").insert(logs);
+      await db.from("scan_log").insert(logs);
     });
 
     return {

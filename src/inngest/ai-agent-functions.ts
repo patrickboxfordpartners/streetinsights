@@ -4,7 +4,7 @@
 
 import { inngest } from "./client";
 import { generateAgentAnalysis, getAgentPersonas, type TickerContext } from "../lib/ai-agents";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/server.js";
 
 /**
  * Generate AI agent analyses for a ticker
@@ -18,7 +18,7 @@ export const generateTickerAgentAnalyses = inngest.createFunction(
 
     // Step 1: Get ticker data
     const tickerData = await step.run("fetch-ticker-data", async () => {
-      const { data: ticker } = await supabase
+      const { data: ticker } = await db
         .from("tickers")
         .select("*")
         .eq("id", tickerId)
@@ -29,7 +29,7 @@ export const generateTickerAgentAnalyses = inngest.createFunction(
       }
 
       // Get sentiment breakdown
-      const { data: predictions } = await supabase
+      const { data: predictions } = await db
         .from("predictions")
         .select("sentiment")
         .eq("ticker_id", tickerId)
@@ -95,7 +95,7 @@ export const dailyAgentAnalysisRefresh = inngest.createFunction(
   async ({ step }) => {
     // Get active tickers with mentions in the last 7 days
     const tickers = await step.run("fetch-active-tickers", async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("tickers")
         .select("id, symbol")
         .eq("is_active", true)

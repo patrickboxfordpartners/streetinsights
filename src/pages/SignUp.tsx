@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 import { useAuth } from "../hooks/useAuth"
 import { Navigate, useSearchParams } from "react-router-dom"
 import { SignUp as ClerkSignUp } from "@clerk/clerk-react"

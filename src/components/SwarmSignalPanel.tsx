@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Zap } from "lucide-react";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 const WORKER_URL = import.meta.env.VITE_WORKER_URL || "";
 
 interface SwarmSignal {
@@ -126,7 +126,7 @@ export function SwarmSignalPanel({ tickerId, symbol }: SwarmSignalPanelProps) {
 
   async function loadSignal() {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await db
       .from("swarm_signals")
       .select("*")
       .eq("symbol", symbol.toUpperCase())
@@ -148,7 +148,7 @@ export function SwarmSignalPanel({ tickerId, symbol }: SwarmSignalPanelProps) {
       // Poll for up to 8 minutes
       for (let i = 0; i < 48; i++) {
         await new Promise(r => setTimeout(r, 10_000));
-        const { data } = await supabase
+        const { data } = await db
           .from("swarm_signals")
           .select("*")
           .eq("symbol", symbol.toUpperCase())

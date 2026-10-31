@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { sendEmail, sendWebhook, sendTelegram, sendDiscord } from "../../lib/email.js";
 
 interface PredictionEvent {
@@ -22,7 +22,7 @@ export const sendPredictionAlerts = inngest.createFunction(
 
     // Get alert preferences for users who have prediction alerts enabled
     const alertPrefs = await step.run("fetch-alert-preferences", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("alert_preferences")
         .select("*")
         .eq("prediction_alerts_enabled", true);
@@ -37,7 +37,7 @@ export const sendPredictionAlerts = inngest.createFunction(
 
     // Get prediction details with related data
     const predictionData = await step.run("fetch-prediction-details", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("predictions")
         .select(`
           *,
@@ -56,7 +56,7 @@ export const sendPredictionAlerts = inngest.createFunction(
 
     for (const pref of alertPrefs) {
       // Filter predictions by user's confidence threshold
-      const relevantPredictions = predictionData.filter((p: any) => {
+      const relevantPredictions = predictionData.filter((p) => {
         const confidenceMap = { low: 30, medium: 60, high: 80 };
         const predictionScore = confidenceMap[p.confidence_level as keyof typeof confidenceMap] || 50;
         return predictionScore >= (pref.prediction_confidence_threshold || 70);
@@ -66,9 +66,9 @@ export const sendPredictionAlerts = inngest.createFunction(
 
       const subject = `🎯 ${relevantPredictions.length} High-Confidence Prediction${relevantPredictions.length > 1 ? 's' : ''}`;
       const message = relevantPredictions
-        .map((p: any) => {
-          const ticker = p.tickers as any;
-          const source = p.sources as any;
+        .map((p) => {
+          const ticker = (p as { tickers?: { symbol?: string } | null }).tickers;
+          const source = (p as { sources?: { name?: string; platform?: string } | null }).sources;
           const direction = p.sentiment === "bullish" ? "📈" : p.sentiment === "bearish" ? "📉" : "➡️";
           const target = p.price_target ? ` → $${p.price_target}` : "";
           const timeframe = p.timeframe_days ? ` (${p.timeframe_days}d)` : "";
@@ -134,7 +134,7 @@ export const sendPredictionAlerts = inngest.createFunction(
         }
 
         // Log the alert
-        const { error: logError } = await supabase.from("alert_log").insert({
+        const { error: logError } = await db.from("alert_log").insert({
           alert_type: "prediction",
           user_id: pref.user_id,
           ticker_symbol: ticker_symbols.join(", "),
@@ -163,33 +163,33 @@ export const sendPredictionAlerts = inngest.createFunction(
 
     // Also alert users who follow the source that made these predictions
     const followAlertsSent = await step.run("send-follow-alerts", async () => {
-      const sourceIds = [...new Set(predictionData.map((p: any) => p.source_id).filter(Boolean))];
+      const sourceIds = [...new Set(predictionData.map((p) => p.source_id).filter(Boolean))];
       if (sourceIds.length === 0) return 0;
 
-      const { data: followers } = await supabase
+      const { data: followers } = await db
         .from("source_follows")
-        .select("user_id, source_id, auth_users:user_id(email)")
+        .select("user_id, source_id, user_profiles(email)")
         .in("source_id", sourceIds);
 
       if (!followers || followers.length === 0) return 0;
 
       let sent = 0;
       for (const follow of followers) {
-        const sourcePreds = predictionData.filter((p: any) => p.source_id === follow.source_id);
+        const sourcePreds = predictionData.filter((p) => p.source_id === follow.source_id);
         if (sourcePreds.length === 0) continue;
 
-        const source = (sourcePreds[0] as any).sources as any;
+        const source = (sourcePreds[0] as { sources?: { name?: string } | null }).sources;
         const subject = `Followed source alert: ${source?.name || "Unknown"} made ${sourcePreds.length} new prediction(s)`;
-        const message = sourcePreds.map((p: any) => {
-          const ticker = p.tickers as any;
+        const message = sourcePreds.map((p) => {
+          const ticker = (p as { tickers?: { symbol?: string } | null }).tickers;
           return `${ticker?.symbol || "Unknown"}: ${p.sentiment} (${p.confidence_level} confidence)`;
         }).join("\n");
 
-        const userEmail = (follow as any).auth_users?.email;
+        const userEmail = (follow as any).user_profiles?.email;
         if (userEmail) {
           const result = await sendEmail({ to: userEmail, subject, text: message });
           if (result.success) {
-            await supabase.from("alert_log").insert({
+            await db.from("alert_log").insert({
               alert_type: "prediction",
               user_id: follow.user_id,
               ticker_symbol: ticker_symbols.join(", "),
