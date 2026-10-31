@@ -30,6 +30,28 @@ const USER_TABLES = new Set([
 
 const AUTH_WRITE = new Set(["tickers", "content_drafts"]);
 
+// Billing and quota columns are only ever written by the server (Stripe
+// webhooks, checkout). The browser must not be able to grant itself a plan.
+const SERVER_ONLY_COLUMNS: Record<string, Set<string>> = {
+  user_profiles: new Set([
+    "plan",
+    "subscription_status",
+    "stripe_customer_id",
+    "stripe_subscription_id",
+    "api_calls_this_month",
+    "api_calls_limit",
+    "trial_ends_at",
+    "subscription_ends_at",
+  ]),
+};
+
+function writesServerOnlyColumn(query: QueryDescriptor): boolean {
+  const blocked = SERVER_ONLY_COLUMNS[query.table];
+  if (!blocked || query.action === "select" || query.action === "delete") return false;
+  const rows: unknown[] = Array.isArray(query.payload) ? query.payload : [query.payload];
+  return rows.some((row) => row !== null && typeof row === "object" && Object.keys(row).some((key) => blocked.has(key)));
+}
+
 function ownerColumn(table: string): string {
   return table === "user_profiles" ? "id" : "user_id";
 }
@@ -44,6 +66,9 @@ export function guardQuery(query: QueryDescriptor, userId: string | null): Query
     if (!userId) {
       if (query.action === "select") return { ...query, filters: [{ kind: "cmp", op: "eq", column: ownerColumn(query.table), value: "__anonymous__" }] };
       return { error: "Sign in required", status: 401 };
+    }
+    if (writesServerOnlyColumn(query)) {
+      return { error: "These fields can only be changed by the server", status: 403 };
     }
     return scopeToUser(query, userId);
   }

@@ -55,7 +55,7 @@ export const generateMultiSignalAlerts = inngest.createFunction(
 
       for (const condition of conditions) {
         // Get recent high-credibility predictions
-        const { data: predictions } = await db
+        const { data: recentPredictions } = await db
           .from("predictions")
           .select(`
             *,
@@ -67,9 +67,17 @@ export const generateMultiSignalAlerts = inngest.createFunction(
           `)
           .eq("ticker_id", condition.ticker_id)
           .gte("prediction_date", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-          .gte("sources.credibility_score", 60)
-          .order("sources.credibility_score", { ascending: false })
-          .limit(5);
+          .order("prediction_date", { ascending: false })
+          .limit(200);
+
+        // The Neon query layer can't filter or sort on embedded columns
+        // (sources.credibility_score), so do that step here.
+        type WithSource = { sources?: { credibility_score?: number | null } | null };
+        const credibility = (p: WithSource) => Number(p?.sources?.credibility_score ?? 0);
+        const predictions = ((recentPredictions || []) as WithSource[])
+          .filter((p) => credibility(p) >= 60)
+          .sort((a, b) => credibility(b) - credibility(a))
+          .slice(0, 5);
 
         // Get mention spike data
         const { data: spikeData } = await db
