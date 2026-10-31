@@ -33,6 +33,7 @@ export const RELATIONS: Record<string, Record<string, Relation>> = {
     event_impact_scores: { table: "event_impact_scores", local: "id", foreign: "event_id", many: true },
   },
   ai_agent_analyses: {
+    tickers: { table: "tickers", local: "ticker_id", foreign: "id", many: false },
     ai_agent_personas: { table: "ai_agent_personas", local: "agent_persona_id", foreign: "id", many: false },
   },
   source_follows: {
