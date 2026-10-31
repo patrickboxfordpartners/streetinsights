@@ -53,6 +53,15 @@ export const generateMultiSignalAlerts = inngest.createFunction(
     const enrichedConditions = await step.run("enrich-conditions", async () => {
       const enriched = [];
 
+      // The Neon query layer can't filter on embedded columns
+      // (sources.credibility_score), so resolve credible source ids first and
+      // filter predictions by source_id in SQL, before the row limit.
+      const { data: credibleSources } = await db
+        .from("sources")
+        .select("id")
+        .gte("credibility_score", 60);
+      const credibleSourceIds = ((credibleSources || []) as Array<{ id: string }>).map((s) => s.id);
+
       for (const condition of conditions) {
         // Get recent high-credibility predictions
         const { data: recentPredictions } = await db
@@ -66,12 +75,12 @@ export const generateMultiSignalAlerts = inngest.createFunction(
             )
           `)
           .eq("ticker_id", condition.ticker_id)
+          .in("source_id", credibleSourceIds)
           .gte("prediction_date", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order("prediction_date", { ascending: false })
           .limit(200);
 
-        // The Neon query layer can't filter or sort on embedded columns
-        // (sources.credibility_score), so do that step here.
+        // Sorting on the embedded column still happens here.
         type WithSource = { sources?: { credibility_score?: number | null } | null };
         const credibility = (p: WithSource) => Number(p?.sources?.credibility_score ?? 0);
         const predictions = ((recentPredictions || []) as WithSource[])
