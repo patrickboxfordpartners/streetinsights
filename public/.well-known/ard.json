@@ -1,0 +1,52 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Street Insights",
+    "documentationUrl": "https://getstreetinsights.com/llms.txt"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:getstreetinsights.com:site:home",
+      "displayName": "Street Insights website",
+      "type": "text/html",
+      "url": "https://getstreetinsights.com/",
+      "description": "Real-time AI-powered stock sentiment analysis. Track market signals, news flow, and social sentiment across your portfolio.",
+      "tags": [
+        "website"
+      ],
+      "trustManifest": {
+        "identity": "https://getstreetinsights.com",
+        "identityType": "https"
+      }
+    },
+    {
+      "identifier": "urn:air:getstreetinsights.com:doc:llms",
+      "displayName": "Street Insights llms.txt",
+      "type": "text/plain",
+      "url": "https://getstreetinsights.com/llms.txt",
+      "description": "Plain-text guide to Street Insights for AI agents.",
+      "tags": [
+        "llms.txt",
+        "docs"
+      ],
+      "trustManifest": {
+        "identity": "https://getstreetinsights.com",
+        "identityType": "https"
+      }
+    },
+    {
+      "identifier": "urn:air:getstreetinsights.com:doc:pricing",
+      "displayName": "Street Insights pricing",
+      "type": "text/markdown",
+      "url": "https://getstreetinsights.com/pricing.md",
+      "description": "Machine-readable pricing for Street Insights.",
+      "tags": [
+        "pricing"
+      ],
+      "trustManifest": {
+        "identity": "https://getstreetinsights.com",
+        "identityType": "https"
+      }
+    }
+  ]
+}
