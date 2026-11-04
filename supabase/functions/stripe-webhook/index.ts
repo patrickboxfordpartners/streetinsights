@@ -36,6 +36,57 @@ function mapSubscriptionStatus(stripeStatus: string): string {
   }
 }
 
+// Best-effort owner alert through the ecosystem-standard path (same shape as
+// src/lib/notify-signup.ts, adapted to Deno). Never throws and never blocks
+// the webhook. No-ops if POSTMARK_SERVER_TOKEN is unset.
+async function notifySignup(
+  kind: string,
+  email: string,
+  name: string | undefined,
+  details: Record<string, string | null | undefined>
+): Promise<void> {
+  try {
+    const token = Deno.env.get("POSTMARK_SERVER_TOKEN") ?? Deno.env.get("POSTMARK_API_KEY");
+    if (!token || !email) return;
+
+    const clean = (s: string) => s.replace(/[\r\n]/g, " ").trim();
+    const to = Deno.env.get("SIGNUP_ALERT_TO") ?? "patrick@boxfordpartners.com";
+    const lines = [
+      `App: Street Insights`,
+      `Kind: ${clean(kind)}`,
+      `Email: ${clean(email)}`,
+      `Name: ${name ? clean(name) : "-"}`,
+      `Time: ${new Date().toISOString()}`,
+      ...Object.entries(details ?? {})
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${clean(k)}: ${clean(String(v))}`),
+    ];
+
+    const res = await fetch("https://api.postmarkapp.com/email", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Postmark-Server-Token": token,
+      },
+      body: JSON.stringify({
+        From: "hello@boxfordpartners.com",
+        To: to,
+        Subject: `[Street Insights] New ${clean(kind)}: ${clean(email)}`,
+        TextBody: lines.join("\n"),
+        MessageStream: "outbound",
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      console.error("[notifySignup] Postmark error:", res.status);
+    }
+  } catch (err) {
+    console.error("[notifySignup] failed:", err);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -107,6 +158,16 @@ serve(async (req) => {
           console.error("[stripe-webhook] Error updating profile:", error);
         } else {
           console.log(`[stripe-webhook] User ${userId} activated on ${tier}`);
+
+          // Best-effort owner alert: first subscription = highest-intent signal.
+          // Look up the email from the Stripe customer so we don't depend on
+          // Clerk (no user webhook exists in this app).
+          notifySignup(
+            "new subscription",
+            session.customer_details?.email ?? "",
+            undefined,
+            { Tier: tier, Plan: session.amount_total ? `$${(session.amount_total / 100).toFixed(2)}/mo` : null }
+          );
         }
         break;
       }
