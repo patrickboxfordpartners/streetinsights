@@ -37,3 +37,4 @@ dist-ssr
 .env.vercel-prod.bak
 .claude/
 *.bak
+supabase/.temp/
