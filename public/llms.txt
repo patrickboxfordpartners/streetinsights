@@ -38,3 +38,28 @@ Street Insights is built by Boxford Partners, an embedded operations consulting 
 - / — Landing page with product overview
 - /blog — Market analysis articles and platform updates
 - /faq — Frequently asked questions
+
+## Key pages
+
+- [Home](https://getstreetinsights.com/): Product overview
+- [Pricing](https://getstreetinsights.com/pricing): Plans and prices
+- [Demo](https://getstreetinsights.com/demo): Live demo with sample data
+- [Leaderboard](https://getstreetinsights.com/leaderboard): Public source credibility leaderboard
+- [FAQ](https://getstreetinsights.com/faq): Common questions
+- [Blog](https://getstreetinsights.com/blog): Articles
+- [Sign up](https://getstreetinsights.com/sign-up): Create an account
+- [Log in](https://getstreetinsights.com/login): Sign in
+- [About](https://getstreetinsights.com/about): About Street Insights
+- [Contact](https://getstreetinsights.com/contact): How to reach us
+- [Privacy](https://getstreetinsights.com/privacy): Privacy policy
+- [Terms](https://getstreetinsights.com/terms): Terms of service
+
+## Machine-readable files
+
+- [Pricing](https://getstreetinsights.com/pricing.md): Plans and prices in markdown
+- [Homepage in markdown](https://getstreetinsights.com/index.md): Homepage summary for agents
+- [Agent resource catalog](https://getstreetinsights.com/.well-known/ard.json): ARD discovery manifest
+
+## Contact
+
+- Email: hello@getstreetinsights.com

@@ -31,21 +31,85 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://getstreetinsights.com/og-image.svg" />
 
-    <script type="application/ld+json">
+      <link rel="alternate" type="text/markdown" href="https://getstreetinsights.com/index.md" />
+    <script type="application/ld+json" id="agent-ready-ld">
+{
+  "@context": "https://schema.org",
+  "@graph": [
     {
-      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": "https://getstreetinsights.com/#organization",
+      "name": "Street Insights",
+      "url": "https://getstreetinsights.com/",
+      "logo": "https://getstreetinsights.com/favicon.svg",
+      "email": "hello@getstreetinsights.com",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "hello@getstreetinsights.com",
+        "url": "https://getstreetinsights.com/contact"
+      },
+      "sameAs": [
+        "https://www.linkedin.com/company/boxfordpartners"
+      ],
+      "parentOrganization": {
+        "@type": "Organization",
+        "name": "Boxford Partners",
+        "url": "https://www.boxfordpartners.com",
+        "sameAs": [
+          "https://www.linkedin.com/company/boxfordpartners"
+        ]
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://getstreetinsights.com/#website",
+      "url": "https://getstreetinsights.com/",
+      "name": "Street Insights",
+      "publisher": {
+        "@id": "https://getstreetinsights.com/#organization"
+      }
+    },
+    {
       "@type": "SoftwareApplication",
       "name": "Street Insights",
+      "url": "https://getstreetinsights.com/",
       "applicationCategory": "FinanceApplication",
       "operatingSystem": "Web",
-      "url": "https://getstreetinsights.com",
-      "description": "Real-time AI-powered stock sentiment analysis and market signal tracking.",
-      "creator": { "@type": "Organization", "name": "Boxford Partners", "url": "https://boxfordpartners.com" }
+      "description": "Real-time AI-powered stock sentiment analysis. Track market signals, news flow, and social sentiment across your portfolio.",
+      "publisher": {
+        "@id": "https://getstreetinsights.com/#organization"
+      },
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Starter",
+          "price": "0",
+          "priceCurrency": "USD",
+          "url": "https://getstreetinsights.com/pricing"
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "99",
+          "priceCurrency": "USD",
+          "url": "https://getstreetinsights.com/pricing"
+        },
+        {
+          "@type": "Offer",
+          "name": "Enterprise",
+          "price": "299",
+          "priceCurrency": "USD",
+          "url": "https://getstreetinsights.com/pricing"
+        }
+      ]
     }
+  ]
+}
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="prerender-fallback" style="font-family:system-ui,sans-serif;max-width:720px;margin:48px auto;padding:0 20px;line-height:1.6"><h1>Street Insights</h1><p>Real-time AI-powered stock sentiment analysis. Track market signals, news flow, and social sentiment across your portfolio.</p><h2>Pages</h2><ul><li><a href="/">Home</a>: Product overview</li><li><a href="/pricing">Pricing</a>: Plans and prices</li><li><a href="/demo">Demo</a>: Live demo with sample data</li><li><a href="/leaderboard">Leaderboard</a>: Public source credibility leaderboard</li><li><a href="/faq">FAQ</a>: Common questions</li><li><a href="/blog">Blog</a>: Articles</li><li><a href="/sign-up">Sign up</a>: Create an account</li><li><a href="/login">Log in</a>: Sign in</li><li><a href="/about">About</a>: About Street Insights</li><li><a href="/contact">Contact</a>: How to reach us</li><li><a href="/privacy">Privacy</a>: Privacy policy</li><li><a href="/terms">Terms</a>: Terms of service</li></ul><p>Contact: <a href="mailto:hello@getstreetinsights.com">hello@getstreetinsights.com</a></p></div></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ("serviceWorker" in navigator) {
