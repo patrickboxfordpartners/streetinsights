@@ -68,6 +68,57 @@ function mapStatus(stripeStatus: string): string {
   return "inactive";
 }
 
+// Best-effort owner alert through the ecosystem-standard path (same shape as
+// src/lib/notify-signup.ts). Never throws and never blocks the webhook.
+// No-ops if POSTMARK_SERVER_TOKEN is unset.
+async function notifySignup(
+  kind: string,
+  email: string,
+  name: string | undefined,
+  details: Record<string, string | null | undefined>
+): Promise<void> {
+  try {
+    const token = process.env.POSTMARK_SERVER_TOKEN ?? process.env.POSTMARK_API_KEY;
+    if (!token || !email) return;
+
+    const clean = (s: string) => s.replace(/[\r\n]/g, " ").trim();
+    const to = process.env.SIGNUP_ALERT_TO ?? "patrick@boxfordpartners.com";
+    const lines = [
+      `App: Street Insights`,
+      `Kind: ${clean(kind)}`,
+      `Email: ${clean(email)}`,
+      `Name: ${name ? clean(name) : "-"}`,
+      `Time: ${new Date().toISOString()}`,
+      ...Object.entries(details ?? {})
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${clean(k)}: ${clean(String(v))}`),
+    ];
+
+    const res = await fetch("https://api.postmarkapp.com/email", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Postmark-Server-Token": token,
+      },
+      body: JSON.stringify({
+        From: "hello@boxfordpartners.com",
+        To: to,
+        Subject: `[Street Insights] New ${clean(kind)}: ${clean(email)}`,
+        TextBody: lines.join("\n"),
+        MessageStream: "outbound",
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      console.error("[notifySignup] Postmark error:", res.status);
+    }
+  } catch (err) {
+    console.error("[notifySignup] failed:", err);
+  }
+}
+
 async function startCheckout(req: Request, res: Response) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) {
@@ -159,6 +210,18 @@ async function stripeWebhook(req: Request, res: Response) {
           stripe_customer_id: String(session.customer),
           stripe_subscription_id: subscription.id,
         }).eq("id", userId);
+
+        // Best-effort owner alert: first subscription = highest-intent signal.
+        // Fire-and-forget so the webhook response is never delayed.
+        notifySignup(
+          "new subscription",
+          session.customer_details?.email ?? "",
+          undefined,
+          {
+            Tier: tierFromPrice(priceId),
+            Amount: session.amount_total ? `$${(session.amount_total / 100).toFixed(2)}` : null,
+          },
+        );
       }
     }
   }
