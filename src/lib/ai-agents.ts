@@ -5,7 +5,7 @@
 
 // @ts-nocheck
 
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/server.js";
 import { routeLLMRequest } from "./llm-router-secure";
 import { getEconomicContextForAI } from "./economic-data";
 import { fmpClient, type HistoricalPrice } from "./fmp";
@@ -95,7 +95,7 @@ export function blendAlphaVantageWithSentiment(
  * Fetch all agent personas
  */
 export async function getAgentPersonas(): Promise<AgentPersona[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("ai_agent_personas")
     .select("*")
     .eq("is_active" as any, true)
@@ -110,40 +110,6 @@ export async function getAgentPersonas(): Promise<AgentPersona[]> {
 }
 
 /**
- * Fetch analyses for a ticker (check cache first)
- */
-export async function getTickerAgentAnalyses(tickerId: string): Promise<AgentAnalysis[]> {
-  const { data, error } = await supabase
-    .from("ai_agent_analyses")
-    .select(
-      `
-      *,
-      ai_agent_personas!inner (
-        name,
-        slug,
-        framework
-      )
-    `
-    )
-    .eq("ticker_id", tickerId)
-    .gt("expires_at", new Date().toISOString()) // Only non-expired
-    .order("analyzed_at", { ascending: false });
-
-  if (error) {
-    console.error("[ai-agents] Error fetching analyses:", error);
-    return [];
-  }
-
-  // Flatten the joined persona data
-  return (data || []).map((item: any) => ({
-    ...item,
-    persona_name: item.ai_agent_personas?.name,
-    persona_slug: item.ai_agent_personas?.slug,
-    persona_framework: item.ai_agent_personas?.framework,
-  }));
-}
-
-/**
  * Generate analysis for a ticker using a specific agent persona
  * This would typically be called server-side via an Edge Function or worker
  */
@@ -155,7 +121,7 @@ export async function generateAgentAnalysis(
 ): Promise<AgentAnalysis | null> {
   try {
     // 1. Get the persona
-    const { data: persona } = await supabase
+    const { data: persona } = await db
       .from("ai_agent_personas")
       .select("*")
       .eq("id", personaId)
@@ -224,7 +190,7 @@ The optional fields (thesis through time_sensitivity) may be omitted if not clea
     const parsed = parseAgentResponse(analysisText);
 
     // 6. Save to database
-    const { data: analysis, error } = await supabase
+    const { data: analysis, error } = await db
       .from("ai_agent_analyses")
       .insert({
         ticker_id: tickerId,

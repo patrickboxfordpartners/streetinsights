@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
-import { supabase } from '../integrations/supabase/client';
+import { db } from '../db/browser';
 
 interface OnboardingState {
   isFirstVisit: boolean;
@@ -45,7 +45,7 @@ export function useOnboarding() {
 
     try {
       // Check if user has any tracked tickers
-      const { data: trackedTickers } = await supabase
+      const { data: trackedTickers } = await db
         .from('user_ticker_tracking')
         .select('ticker_id')
         .eq('user_id' as any, user.id)
@@ -88,7 +88,7 @@ export function useOnboarding() {
 
     try {
       // Get NVDA, TSLA, AAPL ticker IDs
-      const { data: tickers } = await supabase
+      const { data: tickers } = await db
         .from('tickers')
         .select('id, symbol')
         .in('symbol', ['NVDA', 'TSLA', 'AAPL']);
@@ -103,7 +103,7 @@ export function useOnboarding() {
         alert_threshold: 50, // Alert on 50% spike
       }));
 
-      await supabase
+      await db
         .from('user_ticker_tracking')
         .insert(trackingRows as any);
 

@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 
 interface SourceAnalysis {
   source_id: string;
@@ -20,7 +20,7 @@ export const updateCredibilityScores = inngest.createFunction(
   async ({ step }) => {
     // Get all active sources with predictions
     const sources = await step.run("fetch-sources", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("sources")
         .select("id, name, credibility_score, total_predictions, correct_predictions, accuracy_rate")
         .eq("is_active", true);
@@ -34,7 +34,7 @@ export const updateCredibilityScores = inngest.createFunction(
     for (const source of sources) {
       const analysis = await step.run(`analyze-${source.id}`, async () => {
         // Get all validated predictions for this source
-        const { data: predictions } = await supabase
+        const { data: predictions } = await db
           .from("predictions")
           .select(`
             id,
@@ -58,12 +58,15 @@ export const updateCredibilityScores = inngest.createFunction(
 
         // Calculate validation metrics
         const validatedPredictions = predictions.filter(
-          (p: any) => p.validations && p.validations.length > 0
+          (p) => {
+            const validations = (p as { validations?: Array<{ was_correct?: boolean }> }).validations;
+            return validations && validations.length > 0;
+          }
         );
 
         const totalPredictions = predictions.length;
         const correctPredictions = validatedPredictions.filter(
-          (p: any) => p.validations[0]?.was_correct
+          (p) => (p as { validations?: Array<{ was_correct?: boolean }> }).validations?.[0]?.was_correct
         ).length;
 
         const accuracyRate = validatedPredictions.length > 0
@@ -83,22 +86,22 @@ export const updateCredibilityScores = inngest.createFunction(
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         const recentPredictions = predictions.filter(
-          (p: any) => new Date(p.prediction_date) >= thirtyDaysAgo
+          (p) => new Date(p.prediction_date) >= thirtyDaysAgo
         );
 
         const predictionVelocity = (recentPredictions.length / 30) * 7;
 
         // Calculate average reasoning quality
         const avgReasoningQuality = predictions
-          .filter((p: any) => p.reasoning_quality_score !== null)
+          .filter((p) => p.reasoning_quality_score !== null)
           .reduce((sum: number, p: any) => sum + (p.reasoning_quality_score || 0), 0) / predictions.length || 0;
 
         const avgDataDiscipline = predictions
-          .filter((p: any) => p.data_discipline_score !== null)
+          .filter((p) => p.data_discipline_score !== null)
           .reduce((sum: number, p: any) => sum + (p.data_discipline_score || 0), 0) / predictions.length || 0;
 
         const avgTransparency = predictions
-          .filter((p: any) => p.transparency_score !== null)
+          .filter((p) => p.transparency_score !== null)
           .reduce((sum: number, p: any) => sum + (p.transparency_score || 0), 0) / predictions.length || 0;
 
         // Calculate new credibility score (weighted formula)
@@ -112,7 +115,7 @@ export const updateCredibilityScores = inngest.createFunction(
         ));
 
         // Update source in database
-        const { error: updateError } = await supabase
+        const { error: updateError } = await db
           .from("sources")
           .update({
             total_predictions: totalPredictions,
@@ -155,7 +158,7 @@ export const updateCredibilityScores = inngest.createFunction(
     // Calculate reputation shifts
     const reputationShifts = await step.run("calculate-reputation-shifts", async () => {
       // Get top 10 sources by credibility
-      const { data: topSources } = await supabase
+      const { data: topSources } = await db
         .from("sources")
         .select("id, name, credibility_score, accuracy_rate")
         .eq("is_active", true)
@@ -163,7 +166,7 @@ export const updateCredibilityScores = inngest.createFunction(
         .limit(10);
 
       // Get bottom 10 sources (falling stars)
-      const { data: bottomSources } = await supabase
+      const { data: bottomSources } = await db
         .from("sources")
         .select("id, name, credibility_score, accuracy_rate")
         .eq("is_active", true)
@@ -188,12 +191,12 @@ export const updateCredibilityScores = inngest.createFunction(
         accuracy_rate: c.accuracy_rate.toFixed(1)
       })),
       reputation_shifts: {
-        top_performers: reputationShifts.top_sources.slice(0, 5).map((s: any) => ({
+        top_performers: reputationShifts.top_sources.slice(0, 5).map((s) => ({
           name: s.name,
           score: s.credibility_score.toFixed(1),
           accuracy: s.accuracy_rate.toFixed(1)
         })),
-        falling_stars: reputationShifts.bottom_sources.slice(0, 5).map((s: any) => ({
+        falling_stars: reputationShifts.bottom_sources.slice(0, 5).map((s) => ({
           name: s.name,
           score: s.credibility_score.toFixed(1),
           accuracy: s.accuracy_rate.toFixed(1)

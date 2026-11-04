@@ -12,7 +12,7 @@
 
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { extractFeatures } from "../../lib/ml-features.js";
 import { predict, DEFAULT_MODEL_CONFIG, type ModelConfig } from "../../lib/ml-model.js";
 
@@ -51,7 +51,7 @@ const loadModelConfig = createStep({
     prediction_date: z.string(),
   }),
   execute: async ({ inputData }) => {
-    const { data } = await supabase
+    const { data } = await db
       .from("model_configs")
       .select("config")
       .eq("model_type", "price_movement_24h")
@@ -81,7 +81,7 @@ const fetchTickers = createStep({
     tickers: z.array(tickerSchema),
   }),
   execute: async ({ inputData }) => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("tickers")
       .select("id, symbol")
       .eq("is_active", true);
@@ -173,7 +173,7 @@ const storePredictions = createStep({
       target_date: p.target_date,
     }));
 
-    const { error } = await supabase
+    const { error } = await db
       .from("model_predictions")
       .upsert(records, { onConflict: "ticker_id,model_type,prediction_date" });
 

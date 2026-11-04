@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { useAuth } from '../hooks/useAuth'
 import { useWatchlist } from '../hooks/useWatchlist'
 import {
@@ -232,7 +232,7 @@ export function WatchlistOverview() {
     setLoading(true)
 
     // Fetch all active tickers joined with latest swarm signal
-    const { data: tickers } = await supabase
+    const { data: tickers } = await db
       .from('tickers')
       .select('id, symbol, company_name, sector, is_active')
       .eq('is_active', true)
@@ -243,10 +243,10 @@ export function WatchlistOverview() {
     // Fetch latest swarm signal per ticker
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
 
-    const { data: swarmData } = await supabase
+    const { data: swarmData } = await db
       .from('swarm_signals')
       .select('*')
-      .in('symbol', tickers.map(t => t.symbol))
+      .in('symbol', tickers.map((t: any) => t.symbol))
       .gte('run_date', yesterday)
       .order('run_date', { ascending: false })
 
@@ -259,7 +259,7 @@ export function WatchlistOverview() {
     }
 
     // Build signal list, watchlisted first then rest
-    const built: TickerSignal[] = tickers.map(t => {
+    const built: TickerSignal[] = tickers.map((t: any) => {
       const sw = latestBySymbol.get(t.symbol)
       return {
         ticker_id: t.id,

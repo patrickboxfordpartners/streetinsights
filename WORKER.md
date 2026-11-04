@@ -55,19 +55,18 @@ cp .env.example .env
 ```
 
 Required variables:
-- `VITE_SUPABASE_URL` - Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` - Supabase anon key
+- `DATABASE_URL` - Neon Postgres connection string (worker only)
+- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk publishable key
+- `CLERK_SECRET_KEY` - Clerk secret key (worker only)
+- `VITE_WORKER_URL` - public worker origin
 - `VITE_XAI_API_KEY` - XAI Grok API key
 - `VITE_TWITTER_BEARER_TOKEN` - Twitter API bearer token
 - `VITE_REDDIT_CLIENT_ID` - Reddit app client ID
 - `VITE_REDDIT_CLIENT_SECRET` - Reddit app secret
 - `VITE_ALPHA_VANTAGE_API_KEY` - Alpha Vantage API key
 
-### 3. Set Up Supabase Database
-```bash
-# Run the schema
-psql <your_connection_string> < supabase-schema.sql
-```
+### 3. Set Up Neon
+Apply `db/migrations/0001_init.sql` to an empty Neon database. Steps are in `db/MIGRATE_FROM_SUPABASE.md`. Do not point this at a database that already has production data unless you intend to load the schema there.
 
 ### 4. Add Tickers to Track
 ```sql

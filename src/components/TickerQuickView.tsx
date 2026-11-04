@@ -6,9 +6,9 @@
 import { useEffect, useState } from "react";
 import { X, TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 import { AIAgentSummary } from "./AIAgentSummary";
-import { getTickerAgentAnalyses, type AgentAnalysis } from "../lib/ai-agents";
+import { getTickerAgentAnalyses, type AgentAnalysis } from "../lib/ai-agent-reads";
 
 interface TickerQuickViewProps {
   symbol: string;
@@ -44,7 +44,7 @@ export function TickerQuickView({ symbol, onClose }: TickerQuickViewProps) {
     setLoading(true);
 
     // Fetch ticker
-    const { data: tickerData } = await supabase
+    const { data: tickerData } = await db
       .from("tickers")
       .select("*")
       .eq("symbol", symbol)
@@ -58,7 +58,7 @@ export function TickerQuickView({ symbol, onClose }: TickerQuickViewProps) {
     setTicker(tickerData);
 
     // Fetch sentiment breakdown
-    const { data: predictions } = await supabase
+    const { data: predictions } = await db
       .from("predictions")
       .select("sentiment")
       .eq("ticker_id", tickerData.id)

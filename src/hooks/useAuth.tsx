@@ -1,4 +1,5 @@
-import { createContext, useContext, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useCallback, useEffect, type ReactNode } from "react"
+import { setDbAuthToken } from "../db/browser"
 import {
   useUser,
   useAuth as useClerkAuth,
@@ -22,7 +23,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user: clerkUser } = useUser()
+  const { getToken } = useClerkAuth()
   const { signOut: clerkSignOut } = useClerk()
+
+  useEffect(() => {
+    setDbAuthToken(() => getToken())
+    return () => setDbAuthToken(null)
+  }, [getToken])
 
   const user: AuthUser | null =
     isLoaded && isSignedIn && clerkUser

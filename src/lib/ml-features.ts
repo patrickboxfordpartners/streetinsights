@@ -1,4 +1,4 @@
-import { supabase } from "../integrations/supabase/client.js";
+import { db } from "../db/server.js";
 
 const WORKER_URL = process.env.VITE_WORKER_URL || "http://localhost:3001";
 
@@ -57,7 +57,7 @@ export async function extractFeatures(
 
   try {
     // Fetch mention frequency for today
-    const { data: todayData } = await supabase
+    const { data: todayData } = await db
       .from("mention_frequency")
       .select("*")
       .eq("ticker_id", tickerId)
@@ -67,7 +67,7 @@ export async function extractFeatures(
     if (!todayData) return null;
 
     // Fetch 7-day history for baseline
-    const { data: historyData } = await supabase
+    const { data: historyData } = await db
       .from("mention_frequency")
       .select("mention_count, spike_detected")
       .eq("ticker_id", tickerId)
@@ -77,18 +77,18 @@ export async function extractFeatures(
 
     // Calculate mention delta and velocity
     const avgMentions = historyData && historyData.length > 0
-      ? historyData.reduce((sum, d) => sum + d.mention_count, 0) / historyData.length
+      ? historyData.reduce((sum: number, d: any) => sum + d.mention_count, 0) / historyData.length
       : todayData.mention_count;
 
     const mentionDeltaPct = avgMentions > 0
       ? ((todayData.mention_count - avgMentions) / avgMentions) * 100
       : 0;
 
-    const recentSpikes = historyData?.filter(d => d.spike_detected) || [];
+    const recentSpikes = historyData?.filter((d: any) => d.spike_detected) || [];
     const daysSinceLastSpike = recentSpikes.length > 0 ? 0 : 7;
 
     // Fetch recent predictions (last 7 days)
-    const { data: predictions } = await supabase
+    const { data: predictions } = await db
       .from("predictions")
       .select("confidence_level, sentiment")
       .eq("ticker_id", tickerId)
@@ -96,30 +96,30 @@ export async function extractFeatures(
       .lt("prediction_date", dateStr + "T23:59:59Z");
 
     const highConfidencePredictions = predictions?.filter(
-      p => p.confidence_level === "high"
+      (p: any) => p.confidence_level === "high"
     ).length || 0;
 
     // Calculate sentiment ratio from predictions
-    const bullishCount = predictions?.filter(p => p.sentiment === "bullish").length || 0;
-    const bearishCount = predictions?.filter(p => p.sentiment === "bearish").length || 0;
+    const bullishCount = predictions?.filter((p: any) => p.sentiment === "bullish").length || 0;
+    const bearishCount = predictions?.filter((p: any) => p.sentiment === "bearish").length || 0;
     const sentimentRatio = (bullishCount + bearishCount) > 0
       ? bullishCount / (bullishCount + bearishCount)
       : 0.5;
 
     // Fetch source quality metrics
-    const { data: sources } = await supabase
+    const { data: sources } = await db
       .from("mentions")
       .select("source_id, sources(win_rate, total_predictions)")
       .eq("ticker_id", tickerId)
       .gte("mentioned_at", sevenDaysAgoStr + "T00:00:00Z")
       .lt("mentioned_at", dateStr + "T23:59:59Z");
 
-    const sourceStats = sources?.map(m => (m as any).sources).filter(Boolean) || [];
+    const sourceStats = sources?.map((m: any) => m.sources).filter(Boolean) || [];
     const avgCredibility = sourceStats.length > 0
-      ? sourceStats.reduce((sum, s) => sum + (s.win_rate || 0), 0) / sourceStats.length
+      ? sourceStats.reduce((sum: number, s: any) => sum + (s.win_rate || 0), 0) / sourceStats.length
       : 0.5;
 
-    const highQualitySourceCount = sourceStats.filter(s => (s.win_rate || 0) >= 0.6).length;
+    const highQualitySourceCount = sourceStats.filter((s: any) => (s.win_rate || 0) >= 0.6).length;
 
     // Temporal features
     const dayOfWeek = date.getDay();

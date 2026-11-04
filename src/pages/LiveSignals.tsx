@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import { Activity, TrendingUp, TrendingDown, Minus, Radio, Zap } from 'lucide-react'
 import { useOnboarding } from '../hooks/useOnboarding'
 import { EmptyState } from '../components/onboarding/EmptyState'
@@ -27,7 +27,7 @@ export function LiveSignals() {
   useEffect(() => {
     fetchSignals()
 
-    const subscription = supabase
+    const subscription = db
       .channel('predictions-changes')
       .on(
         'postgres_changes',
@@ -45,7 +45,7 @@ export function LiveSignals() {
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-    const { data: predictions } = await supabase
+    const { data: predictions } = await db
       .from('predictions')
       .select(
         `
@@ -104,7 +104,7 @@ export function LiveSignals() {
       // Check for unusual options flow in last 24h
       const oneDayAgo = new Date()
       oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-      const { data: optionsActivity } = await (supabase as any)
+      const { data: optionsActivity } = await (db as any)
         .from('options_flow')
         .select('symbol')
         .gte('detected_at', oneDayAgo.toISOString())

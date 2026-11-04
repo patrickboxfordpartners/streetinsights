@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { fetchAllGovernmentEvents } from "../../integrations/government/aggregator.js";
 
 export const scanGovernmentCalendar = inngest.createFunction(
@@ -27,7 +27,7 @@ export const scanGovernmentCalendar = inngest.createFunction(
       // Batch upsert in groups of 20
       for (let i = 0; i < events.length; i += 20) {
         const batch = events.slice(i, i + 20);
-        const { error } = await supabase
+        const { error } = await db
           .from("government_events")
           .upsert(
             batch.map((e) => ({
@@ -61,7 +61,7 @@ export const scanGovernmentCalendar = inngest.createFunction(
     // Emit scoring events for new/upcoming events within next 7 days
     const newEventIds = await step.run("find-unscored-events", async () => {
       const sevenDaysOut = new Date(Date.now() + 7 * 86400000).toISOString();
-      const { data } = await supabase
+      const { data } = await db
         .from("government_events")
         .select("id")
         .eq("status", "upcoming")
@@ -70,7 +70,7 @@ export const scanGovernmentCalendar = inngest.createFunction(
           "id",
           "in",
           `(${(
-            await supabase
+            await db
               .from("event_impact_scores")
               .select("event_id")
               .eq("is_latest", true)
@@ -94,7 +94,7 @@ export const scanGovernmentCalendar = inngest.createFunction(
 
     // Log to scan_log
     await step.run("log-scan", async () => {
-      await supabase.from("scan_log").insert({
+      await db.from("scan_log").insert({
         scan_type: "government_calendar",
         status: "success",
         mentions_found: stored,

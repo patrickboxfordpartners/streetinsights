@@ -23,8 +23,7 @@ export interface MacroOverview {
   lastUpdated: string;
 }
 
-// FRED API Configuration - now proxied through Supabase Edge Function
-import { supabase } from '../integrations/supabase/client';
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:3001";
 
 // Common FRED series IDs
 const FRED_SERIES = {
@@ -49,22 +48,8 @@ async function fetchFREDSeries(
   category: EconomicIndicator["category"]
 ): Promise<EconomicIndicator | null> {
   try {
-    // Call secure Supabase Edge Function proxy
-    const { data, error } = await supabase.functions.invoke('fred-proxy', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: {
-        series_id: seriesId,
-        endpoint: 'series/observations'
-      }
-    })
-
-    if (error) {
-      console.warn(`[economic-data] FRED proxy error: ${error.message}`)
-      return null
-    }
+    const data = await loadFredObservations(seriesId);
+    if (!data) return null;
 
     if (!data.observations || data.observations.length === 0) {
       return null;
@@ -85,6 +70,26 @@ async function fetchFREDSeries(
     console.error(`[economic-data] Error fetching ${seriesId}:`, error.message);
     return null;
   }
+}
+
+async function loadFredObservations(seriesId: string): Promise<{ observations?: Array<{ value: string; date: string }> } | null> {
+  const serverKey = typeof process !== "undefined" ? process.env.FRED_API_KEY : undefined;
+  if (serverKey && typeof window === "undefined") {
+    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${encodeURIComponent(seriesId)}&api_key=${encodeURIComponent(serverKey)}&file_type=json&sort_order=desc&limit=1`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return response.json();
+  }
+  const response = await fetch(`${WORKER_URL}/api/fred`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ series_id: seriesId, endpoint: "series/observations" }),
+  });
+  if (!response.ok) {
+    console.warn(`[economic-data] FRED proxy error: ${response.status}`);
+    return null;
+  }
+  return response.json();
 }
 
 /**

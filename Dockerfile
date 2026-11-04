@@ -15,7 +15,7 @@ WORKDIR /app
 
 # ── Node deps ─────────────────────────────────────────────────────────────
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # ── Clone Vibe-Trading and install Python deps ────────────────────────────
 RUN git clone --depth 1 https://github.com/HKUDS/Vibe-Trading.git /vibe-trading
@@ -27,6 +27,7 @@ RUN pip3 install --no-cache-dir --break-system-packages -r /vibe-trading/require
 COPY tsconfig*.json ./
 COPY worker.ts ./
 COPY src/ ./src/
+COPY docs/overview.md docs/mcp.md docs/query.md ./docs/
 
 # vibe-trading config — set in environment variables
 ENV VIBE_TRADING_DIR=/vibe-trading

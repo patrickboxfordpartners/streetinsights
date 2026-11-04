@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 
 interface TwitterMention {
   id: string;
@@ -98,7 +98,7 @@ export const scanMentions = inngest.createFunction(
   async ({ step }) => {
     // Get active tickers to monitor
     const activeTickers = await step.run("fetch-active-tickers", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tickers")
         .select("id, symbol")
         .eq("is_active", true);
@@ -391,7 +391,7 @@ export const scanMentions = inngest.createFunction(
 
       if (platformUsernames.length > 0) {
         // Fetch existing sources
-        const { data: existingSources } = await supabase
+        const { data: existingSources } = await db
           .from("sources")
           .select("id, platform, username")
           .in("platform", [...new Set(platformUsernames.map(s => s.platform))])
@@ -438,7 +438,7 @@ export const scanMentions = inngest.createFunction(
             };
           });
 
-          const { data: created } = await supabase
+          const { data: created } = await db
             .from("sources")
             .upsert(sourceRecords, { onConflict: "platform,username" })
             .select("id, platform, username");
@@ -590,7 +590,7 @@ export const scanMentions = inngest.createFunction(
       }
 
       if (mentionsToStore.length > 0) {
-        const { error } = await supabase
+        const { error } = await db
           .from("mentions")
           .insert(mentionsToStore);
 
@@ -652,7 +652,7 @@ export const scanMentions = inngest.createFunction(
         },
       ];
 
-      await supabase.from("scan_log").insert(logs);
+      await db.from("scan_log").insert(logs);
     });
 
     return {

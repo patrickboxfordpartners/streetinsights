@@ -1,0 +1,411 @@
+import { sql } from "drizzle-orm";
+import {
+  bigint,
+  boolean,
+  customType,
+  date,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+const tstzrange = customType<{ data: string }>({ dataType: () => "tstzrange" });
+
+export const tickers = pgTable("tickers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  symbol: text("symbol").notNull().unique(),
+  companyName: text("company_name"),
+  sector: text("sector"),
+  industry: text("industry"),
+  marketCap: bigint("market_cap", { mode: "number" }),
+  avgDailyMentions: integer("avg_daily_mentions").default(0),
+  mentionSpikeThreshold: integer("mention_spike_threshold").default(20),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const sources = pgTable("sources", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  platform: text("platform").notNull(),
+  username: text("username"),
+  sourceType: text("source_type").notNull(),
+  followerCount: integer("follower_count").default(0),
+  credibilityScore: numeric("credibility_score", { precision: 5, scale: 2 }).default("50.0"),
+  totalPredictions: integer("total_predictions").default(0),
+  correctPredictions: integer("correct_predictions").default(0),
+  accuracyRate: numeric("accuracy_rate", { precision: 5, scale: 2 }).default("0.0"),
+  avgDaysToTarget: numeric("avg_days_to_target", { precision: 8, scale: 2 }),
+  usesDataSources: boolean("uses_data_sources").default(false),
+  reasoningQuality: numeric("reasoning_quality", { precision: 3, scale: 2 }).default("0.0"),
+  transparencyScore: numeric("transparency_score", { precision: 3, scale: 2 }).default("0.0"),
+  bio: text("bio"),
+  url: text("url"),
+  verified: boolean("verified").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("sources_platform_username").on(table.platform, table.username)]);
+
+export const mentions = pgTable("mentions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tickerId: uuid("ticker_id").notNull().references(() => tickers.id, { onDelete: "cascade" }),
+  sourceId: uuid("source_id").references(() => sources.id, { onDelete: "set null" }),
+  content: text("content").notNull(),
+  url: text("url"),
+  platform: text("platform").notNull(),
+  mentionedAt: timestamp("mentioned_at", { withTimezone: true }).notNull(),
+  detectedAt: timestamp("detected_at", { withTimezone: true }).defaultNow(),
+  engagementScore: integer("engagement_score").default(0),
+  isPrediction: boolean("is_prediction").default(false),
+  processed: boolean("processed").default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+  uniqueIndex("mentions_ticker_platform_url").on(table.tickerId, table.platform, table.url),
+  index("idx_mentions_mentioned_at").on(table.mentionedAt),
+]);
+
+export const predictions = pgTable("predictions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tickerId: uuid("ticker_id").notNull().references(() => tickers.id, { onDelete: "cascade" }),
+  sourceId: uuid("source_id").notNull().references(() => sources.id, { onDelete: "cascade" }),
+  mentionId: uuid("mention_id").references(() => mentions.id, { onDelete: "set null" }),
+  sentiment: text("sentiment").notNull(),
+  priceTarget: numeric("price_target", { precision: 12, scale: 2 }),
+  timeframeDays: integer("timeframe_days"),
+  confidenceLevel: text("confidence_level"),
+  reasoning: text("reasoning"),
+  dataSourcesCited: text("data_sources_cited").array(),
+  catalysts: text("catalysts").array(),
+  reasoningQualityScore: numeric("reasoning_quality_score", { precision: 3, scale: 2 }),
+  dataDisciplineScore: numeric("data_discipline_score", { precision: 3, scale: 2 }),
+  transparencyScore: numeric("transparency_score", { precision: 3, scale: 2 }),
+  predictionDate: timestamp("prediction_date", { withTimezone: true }).notNull(),
+  targetDate: timestamp("target_date", { withTimezone: true }),
+  bullCase: text("bull_case"),
+  bearCase: text("bear_case"),
+  risks: text("risks").array(),
+  debateRounds: integer("debate_rounds").default(0),
+  earningsWindow: boolean("earnings_window").default(false),
+  earningsDate: date("earnings_date"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [index("idx_predictions_ticker_date").on(table.tickerId, table.predictionDate)]);
+
+export const validations = pgTable("validations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  predictionId: uuid("prediction_id").notNull().references(() => predictions.id, { onDelete: "cascade" }),
+  priceAtPrediction: numeric("price_at_prediction", { precision: 12, scale: 2 }).notNull(),
+  priceAtValidation: numeric("price_at_validation", { precision: 12, scale: 2 }).notNull(),
+  priceChangePercent: numeric("price_change_percent", { precision: 6, scale: 2 }).notNull(),
+  wasCorrect: boolean("was_correct").notNull(),
+  accuracyScore: numeric("accuracy_score", { precision: 5, scale: 2 }).notNull(),
+  daysToOutcome: integer("days_to_outcome"),
+  validationDate: timestamp("validation_date", { withTimezone: true }).notNull(),
+  validationMethod: text("validation_method"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const mentionFrequency = pgTable("mention_frequency", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tickerId: uuid("ticker_id").notNull().references(() => tickers.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  mentionCount: integer("mention_count").default(0),
+  uniqueSources: integer("unique_sources").default(0),
+  avgSentimentScore: numeric("avg_sentiment_score", { precision: 4, scale: 2 }),
+  spikeDetected: boolean("spike_detected").default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("mention_frequency_ticker_date").on(table.tickerId, table.date)]);
+
+export const scanLog = pgTable("scan_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  scanType: text("scan_type").notNull(),
+  status: text("status").notNull(),
+  mentionsFound: integer("mentions_found").default(0),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
+
+export const userProfiles = pgTable("user_profiles", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  fullName: text("full_name"),
+  plan: text("plan").notNull().default("free"),
+  subscriptionStatus: text("subscription_status").notNull().default("inactive"),
+  stripeCustomerId: text("stripe_customer_id").unique(),
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  apiCallsThisMonth: integer("api_calls_this_month").default(0),
+  apiCallsLimit: integer("api_calls_limit").default(100),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  subscriptionEndsAt: timestamp("subscription_ends_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const userWatchlist = pgTable("user_watchlist", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  tickerId: uuid("ticker_id").notNull().references(() => tickers.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("user_watchlist_user_ticker").on(table.userId, table.tickerId)]);
+
+export const userTickerTracking = pgTable("user_ticker_tracking", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  tickerId: uuid("ticker_id").notNull().references(() => tickers.id, { onDelete: "cascade" }),
+  alertEnabled: boolean("alert_enabled").default(true),
+  alertThreshold: integer("alert_threshold").default(50),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("user_ticker_tracking_user_ticker").on(table.userId, table.tickerId)]);
+
+export const sourceFollows = pgTable("source_follows", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  sourceId: uuid("source_id").notNull().references(() => sources.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("source_follows_user_source").on(table.userId, table.sourceId)]);
+
+export const alertPreferences = pgTable("alert_preferences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").unique().references(() => userProfiles.id, { onDelete: "cascade" }),
+  spikeAlertsEnabled: boolean("spike_alerts_enabled").default(true),
+  predictionAlertsEnabled: boolean("prediction_alerts_enabled").default(true),
+  dailyDigestEnabled: boolean("daily_digest_enabled").default(false),
+  spikeMentionThreshold: integer("spike_mention_threshold").default(20),
+  predictionConfidenceThreshold: integer("prediction_confidence_threshold").default(70),
+  emailEnabled: boolean("email_enabled").default(true),
+  emailAddress: text("email_address"),
+  webhookEnabled: boolean("webhook_enabled").default(false),
+  webhookUrl: text("webhook_url"),
+  telegramEnabled: boolean("telegram_enabled").default(false),
+  telegramChatId: text("telegram_chat_id"),
+  discordEnabled: boolean("discord_enabled").default(false),
+  discordWebhookUrl: text("discord_webhook_url"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const alertLog = pgTable("alert_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  alertType: text("alert_type").notNull(),
+  userId: text("user_id").references(() => userProfiles.id, { onDelete: "cascade" }),
+  tickerSymbol: text("ticker_symbol"),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  metadata: jsonb("metadata"),
+  status: text("status").default("pending"),
+  deliveryChannel: text("delivery_channel"),
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const contentDrafts = pgTable("content_drafts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  source: text("source").notNull().default("market-signals"),
+  type: text("type").notNull().default("linkedin"),
+  title: text("title"),
+  body: text("body").notNull(),
+  status: text("status").notNull().default("draft"),
+  metadata: jsonb("metadata").default({}),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const debates = pgTable("debates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  topicTitle: text("topic_title"),
+  topicCategory: text("topic_category"),
+  personas: jsonb("personas"),
+  transcript: jsonb("transcript"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const governmentEvents = pgTable("government_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  description: text("description"),
+  eventType: text("event_type").notNull(),
+  sourceCategory: text("source_category").notNull(),
+  eventDate: timestamp("event_date", { withTimezone: true }).notNull(),
+  eventEndDate: timestamp("event_end_date", { withTimezone: true }),
+  allDay: boolean("all_day").default(false),
+  sourceUrl: text("source_url"),
+  sourceFeed: text("source_feed").notNull(),
+  externalId: text("external_id").notNull(),
+  status: text("status").default("upcoming"),
+  participants: text("participants").array(),
+  relatedTopics: text("related_topics").array(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("government_events_feed_external").on(table.sourceFeed, table.externalId)]);
+
+export const eventImpactScores = pgTable("event_impact_scores", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventId: uuid("event_id").notNull().references(() => governmentEvents.id, { onDelete: "cascade" }),
+  impactMagnitude: numeric("impact_magnitude").notNull(),
+  impactDirection: text("impact_direction").notNull(),
+  confidence: numeric("confidence").default("0"),
+  timeframe: text("timeframe").default(""),
+  affectedSectors: text("affected_sectors").array(),
+  affectedTickers: text("affected_tickers").array(),
+  reasoning: text("reasoning").default(""),
+  keyFactors: text("key_factors").array(),
+  historicalPrecedent: text("historical_precedent").default(""),
+  modelProvider: text("model_provider"),
+  modelName: text("model_name"),
+  isLatest: boolean("is_latest").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const eventValidations = pgTable("event_validations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventId: uuid("event_id").notNull().references(() => governmentEvents.id, { onDelete: "cascade" }),
+  scoreId: uuid("score_id").notNull().references(() => eventImpactScores.id, { onDelete: "cascade" }),
+  actualDirection: text("actual_direction").notNull(),
+  actualMagnitude: numeric("actual_magnitude"),
+  tickerOutcomes: jsonb("ticker_outcomes").default([]),
+  sectorOutcomes: jsonb("sector_outcomes").default([]),
+  directionCorrect: boolean("direction_correct"),
+  magnitudeError: numeric("magnitude_error"),
+  tickerAccuracyPct: numeric("ticker_accuracy_pct"),
+  sectorAccuracyPct: numeric("sector_accuracy_pct"),
+  overallScore: numeric("overall_score"),
+  validationWindowHours: integer("validation_window_hours").default(24),
+  validatedAt: timestamp("validated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const swarmSignals = pgTable("swarm_signals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tickerId: uuid("ticker_id").references(() => tickers.id, { onDelete: "cascade" }),
+  symbol: text("symbol").notNull(),
+  runDate: date("run_date").notNull().default(sql`CURRENT_DATE`),
+  compositeScore: numeric("composite_score", { precision: 6, scale: 2 }),
+  compositeLabel: text("composite_label"),
+  historicalPct1yr: integer("historical_pct_1yr"),
+  reversalSignal: text("reversal_signal"),
+  newsScore: numeric("news_score", { precision: 6, scale: 2 }),
+  socialScore: numeric("social_score", { precision: 6, scale: 2 }),
+  flowScore: numeric("flow_score", { precision: 6, scale: 2 }),
+  newsWeight: numeric("news_weight", { precision: 4, scale: 2 }).default("0.25"),
+  socialWeight: numeric("social_weight", { precision: 4, scale: 2 }).default("0.35"),
+  flowWeight: numeric("flow_weight", { precision: 4, scale: 2 }).default("0.40"),
+  compositeDelta: numeric("composite_delta", { precision: 6, scale: 2 }),
+  newsDelta: numeric("news_delta", { precision: 6, scale: 2 }),
+  socialDelta: numeric("social_delta", { precision: 6, scale: 2 }),
+  flowDelta: numeric("flow_delta", { precision: 6, scale: 2 }),
+  overheatWatch: boolean("overheat_watch").default(false),
+  reversalTriggered: boolean("reversal_triggered").default(false),
+  fearGreedScore: numeric("fear_greed_score", { precision: 6, scale: 2 }),
+  newsReport: text("news_report"),
+  socialReport: text("social_report"),
+  flowReport: text("flow_report"),
+  synthesisReport: text("synthesis_report"),
+  swarmRunId: text("swarm_run_id"),
+  modelUsed: text("model_used").default("grok-3-latest"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("swarm_signals_symbol_run_date").on(table.symbol, table.runDate)]);
+
+export const optionsFlow = pgTable("options_flow", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tickerId: uuid("ticker_id").references(() => tickers.id, { onDelete: "cascade" }),
+  symbol: text("symbol").notNull(),
+  contractType: text("contract_type").notNull(),
+  strikePrice: numeric("strike_price"),
+  expirationDate: date("expiration_date"),
+  openInterest: integer("open_interest"),
+  volume: integer("volume"),
+  impliedVolatility: numeric("implied_volatility"),
+  premium: numeric("premium"),
+  sentiment: text("sentiment"),
+  unusualScore: numeric("unusual_score"),
+  source: text("source").default("unusualwhales"),
+  detectedAt: timestamp("detected_at", { withTimezone: true }).defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const modelPredictions = pgTable("model_predictions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tickerId: uuid("ticker_id").references(() => tickers.id, { onDelete: "cascade" }),
+  modelType: text("model_type").notNull(),
+  predictionDirection: text("prediction_direction"),
+  confidenceScore: numeric("confidence_score", { precision: 3, scale: 2 }),
+  predictedMagnitude: numeric("predicted_magnitude", { precision: 5, scale: 2 }),
+  features: jsonb("features"),
+  modelVersion: text("model_version"),
+  trainedAt: timestamp("trained_at", { withTimezone: true }),
+  actualDirection: text("actual_direction"),
+  actualMagnitude: numeric("actual_magnitude", { precision: 5, scale: 2 }),
+  wasCorrect: boolean("was_correct"),
+  validatedAt: timestamp("validated_at", { withTimezone: true }),
+  predictionDate: timestamp("prediction_date", { withTimezone: true }).notNull(),
+  targetDate: timestamp("target_date", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("model_predictions_ticker_type_date").on(table.tickerId, table.modelType, table.predictionDate)]);
+
+export const modelConfigs = pgTable("model_configs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  modelType: text("model_type").notNull(),
+  modelVersion: text("model_version").notNull(),
+  config: jsonb("config").notNull(),
+  trainingSamples: integer("training_samples"),
+  trainingDateRange: tstzrange("training_date_range"),
+  accuracy: numeric("accuracy", { precision: 4, scale: 3 }),
+  precision: numeric("precision", { precision: 4, scale: 3 }),
+  recall: numeric("recall", { precision: 4, scale: 3 }),
+  f1Score: numeric("f1_score", { precision: 4, scale: 3 }),
+  metricsByClass: jsonb("metrics_by_class"),
+  isActive: boolean("is_active").default(true),
+  trainedAt: timestamp("trained_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("model_configs_type_version").on(table.modelType, table.modelVersion)]);
+
+export const modelTrainingData = pgTable("model_training_data", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tickerId: uuid("ticker_id").references(() => tickers.id, { onDelete: "cascade" }),
+  features: jsonb("features").notNull(),
+  targetDirection: text("target_direction").notNull(),
+  targetMagnitude: numeric("target_magnitude", { precision: 5, scale: 2 }).notNull(),
+  observationDate: date("observation_date").notNull(),
+  targetDate: date("target_date").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [uniqueIndex("model_training_data_ticker_dates").on(table.tickerId, table.observationDate, table.targetDate)]);
+
+export const aiAgentPersonas = pgTable("ai_agent_personas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  description: text("description").notNull(),
+  framework: text("framework").notNull(),
+  promptTemplate: text("prompt_template").notNull(),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const aiAgentAnalyses = pgTable("ai_agent_analyses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tickerId: uuid("ticker_id").notNull().references(() => tickers.id, { onDelete: "cascade" }),
+  agentPersonaId: uuid("agent_persona_id").notNull().references(() => aiAgentPersonas.id, { onDelete: "cascade" }),
+  sentiment: text("sentiment").notNull(),
+  confidenceScore: numeric("confidence_score", { precision: 5, scale: 2 }),
+  analysisText: text("analysis_text").notNull(),
+  keyFactors: text("key_factors").array(),
+  risks: text("risks").array(),
+  recommendation: text("recommendation"),
+  analyzedAt: timestamp("analyzed_at", { withTimezone: true }).defaultNow(),
+  priceAtAnalysis: numeric("price_at_analysis", { precision: 12, scale: 2 }),
+  ttlHours: integer("ttl_hours").default(24),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).default(sql`NOW() + INTERVAL '24 hours'`),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});

@@ -8,7 +8,7 @@
  */
 
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { isUSMarketOpen } from "../../lib/market-calendar.js";
 import { spawn } from "child_process";
 import * as path from "path";
@@ -212,7 +212,7 @@ async function getPreviousSignal(symbol: string): Promise<{
   social_score: number | null;
   flow_score: number | null;
 } | null> {
-  const { data } = await supabase
+  const { data } = await db
     .from("swarm_signals")
     .select("composite_score, news_score, social_score, flow_score")
     .eq("symbol", symbol)
@@ -239,7 +239,7 @@ export const runSwarmSentiment = inngest.createFunction(
     // 1. Resolve tickerId if not provided
     const resolvedTickerId = await step.run("resolve-ticker", async () => {
       if (tickerId) return tickerId;
-      const { data } = await supabase
+      const { data } = await db
         .from("tickers")
         .select("id")
         .eq("symbol", symbol.toUpperCase())
@@ -269,7 +269,7 @@ export const runSwarmSentiment = inngest.createFunction(
       return await getPreviousSignal(symbol.toUpperCase());
     });
 
-    // 5. Upsert to Supabase
+    // 5. Upsert the daily swarm row
     await step.run("persist-signal", async () => {
       const today = new Date().toISOString().split("T")[0];
       const row = {
@@ -297,11 +297,11 @@ export const runSwarmSentiment = inngest.createFunction(
         synthesis_report: artifacts.synthesis?.slice(0, 8000) || null,
       };
 
-      const { error } = await supabase
+      const { error } = await db
         .from("swarm_signals")
         .upsert(row, { onConflict: "symbol,run_date" });
 
-      if (error) throw new Error(`Supabase upsert failed: ${error.message}`);
+      if (error) throw new Error(`Swarm upsert failed: ${error.message}`);
       return { persisted: true };
     });
 
@@ -328,7 +328,7 @@ export const dailySwarmSentimentRefresh = inngest.createFunction(
   async ({ step }) => {
     // Fetch active tickers with recent mentions
     const tickers = await step.run("fetch-active-tickers", async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("tickers")
         .select("id, symbol")
         .eq("is_active", true)
@@ -356,6 +356,6 @@ export const dailySwarmSentimentRefresh = inngest.createFunction(
       }
     });
 
-    return { dispatched: tickers.length, symbols: tickers.map(t => t.symbol) };
+    return { dispatched: tickers.length, symbols: tickers.map((t) => t.symbol) };
   }
 );

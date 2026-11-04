@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { sendEmail, sendWebhook, sendTelegram, sendDiscord } from "../../lib/email.js";
 
 interface SpikeEvent {
@@ -22,7 +22,7 @@ export const sendSpikeAlerts = inngest.createFunction(
 
     // Get alert preferences for users who have spike alerts enabled
     const alertPrefs = await step.run("fetch-alert-preferences", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("alert_preferences")
         .select("*")
         .eq("spike_alerts_enabled", true);
@@ -37,7 +37,7 @@ export const sendSpikeAlerts = inngest.createFunction(
 
     // Get spike details
     const spikeData = await step.run("fetch-spike-details", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("mention_frequency")
         .select("*, tickers(symbol, company_name)")
         .in("id", spike_ids)
@@ -53,15 +53,15 @@ export const sendSpikeAlerts = inngest.createFunction(
     for (const pref of alertPrefs) {
       // Filter spikes by user's threshold
       const relevantSpikes = spikeData.filter(
-        (s: any) => s.mention_count >= (pref.spike_mention_threshold || 20)
+        (s) => s.mention_count >= (pref.spike_mention_threshold || 20)
       );
 
       if (relevantSpikes.length === 0) continue;
 
       const subject = `🚨 ${relevantSpikes.length} Spike${relevantSpikes.length > 1 ? 's' : ''} Detected`;
       const message = relevantSpikes
-        .map((s: any) => {
-          const ticker = s.tickers as any;
+        .map((s) => {
+          const ticker = (s as { tickers?: { symbol?: string } | null }).tickers;
           return `${ticker?.symbol || 'Unknown'}: ${s.mention_count} mentions (${s.spike_detected ? 'SPIKE' : ''})`;
         })
         .join('\n');
@@ -126,7 +126,7 @@ export const sendSpikeAlerts = inngest.createFunction(
         }
 
         // Log the alert
-        const { error: logError } = await supabase.from("alert_log").insert({
+        const { error: logError } = await db.from("alert_log").insert({
           alert_type: "spike",
           user_id: pref.user_id,
           ticker_symbol: ticker_symbols.join(", "),

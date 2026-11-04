@@ -6,7 +6,7 @@
 Browser
   └── Vercel (app.getstreetinsights.com)
         └── Vite SPA (src/main.tsx → src/App.tsx)
-              └── Direct Supabase calls (anon key, RLS)
+              └── POST /api/db on the worker (Clerk session, table allowlist)
 
 Railway (worker-production-c529.up.railway.app)
   └── worker.ts (Express server, port 3001/PORT)
@@ -19,10 +19,10 @@ Railway (worker-production-c529.up.railway.app)
         ├── /mcp             — MCP server (9 tools, bearer auth)
         └── /docs/:slug      — Markdown docs for agents
 
-Supabase (xtyfljmwfwhzthwdhkly)
-  └── PostgreSQL (schema in supabase-schema.sql + migrations/)
-  └── Edge Functions (stripe-checkout, stripe-webhook)
-  └── Auth (email, no email confirmation)
+Neon Postgres
+  └── Schema in db/migrations/0001_init.sql and src/db/schema.ts
+  └── Browser access only through the worker
+  └── Auth is Clerk (SPA + worker verifyToken)
 
 Inngest Cloud
   └── Receives events from worker /api/inngest
@@ -37,17 +37,17 @@ Inngest Cloud
 
 **Railway build:** `Dockerfile` → `tsx worker.ts` via `npm run worker`
 
-Both deployments read from the same Supabase instance. The frontend calls Supabase directly using the anon key + RLS. The worker uses the same anon key but also has `SUPABASE_DB_URL` for direct Postgres access (NL query endpoint).
+Both deployments use the same Neon database. The frontend never holds `DATABASE_URL`. The worker runs queries with `@neondatabase/serverless`, including the natural-language SQL endpoint.
 
 ## Module Boundaries
 
 ```
-src/integrations/   ← all external I/O (Supabase, LLM, news, gov APIs)
+src/integrations/   ← external I/O (LLM, news, gov APIs). Database access is src/db/
 src/lib/            ← pure logic (no I/O): ML model, indicators, NL query, reasoning validator
 src/inngest/        ← orchestration: schedules, retries, event flow
 src/mastra/         ← AI workflow definitions (called from Inngest)
-src/mcp/            ← MCP server (calls Supabase via integration client)
-src/pages/          ← React pages (call Supabase directly via hooks)
+src/mcp/            ← MCP server (calls Neon via src/db/server.ts)
+src/pages/          ← React pages (call Neon via src/db/browser.ts)
 src/hooks/          ← shared React state (auth, data, URL params)
 ```
 

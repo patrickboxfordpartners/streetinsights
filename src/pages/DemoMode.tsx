@@ -100,6 +100,21 @@ export default function DemoMode() {
     }
   }, [hasInteracted]);
 
+  const maxDay = scenario ? scenario.days_before_spike + scenario.days_after_spike : 0;
+  const isComplete = !!scenario && currentDay >= scenario.outcome.days_elapsed;
+
+  // Must stay above the loading return. A hook after that return changes
+  // the hook count once scenario data arrives and crashes the page (React #310).
+  useEffect(() => {
+    if (!scenario || scenario.stock !== selectedStock || !isComplete || !hasInteracted) return;
+    trackDemoEngagement({
+      action: 'demo_complete',
+      stock: selectedStock,
+      progress: 100,
+      outcome: scenario.outcome.price_change_percent > 0 ? 'bullish' : 'bearish',
+    });
+  }, [isComplete, hasInteracted, selectedStock, scenario]);
+
   if (!scenario) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -111,30 +126,17 @@ export default function DemoMode() {
     );
   }
 
+  const cutoff = timelineCutoff(scenario.posts, currentDay, maxDay);
   const currentPosts = scenario.posts.filter(
-    (p) => new Date(p.timestamp) <= addDays(new Date(), currentDay)
+    (p) => new Date(p.timestamp).getTime() <= cutoff
   );
 
   const currentPredictions = scenario.predictions.filter(
-    (p) => new Date(p.timestamp) <= addDays(new Date(), currentDay)
+    (p) => new Date(p.timestamp).getTime() <= cutoff
   );
 
-  const maxDay = scenario.days_before_spike + scenario.days_after_spike;
   const spikeDay = scenario.days_before_spike;
   const isSpike = currentDay >= spikeDay && currentDay <= spikeDay + 3;
-  const isComplete = currentDay >= scenario.outcome.days_elapsed;
-
-  // Track completion
-  useEffect(() => {
-    if (isComplete && hasInteracted) {
-      trackDemoEngagement({
-        action: 'demo_complete',
-        stock: selectedStock,
-        progress: 100,
-        outcome: scenario.outcome.price_change_percent > 0 ? 'bullish' : 'bearish',
-      });
-    }
-  }, [isComplete, hasInteracted, selectedStock, scenario.outcome.price_change_percent]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -555,9 +557,20 @@ export default function DemoMode() {
   );
 }
 
-// Helper function
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() - (90 - days)); // Work backwards from today
-  return result;
+// Scenario files store absolute timestamps from when they were generated.
+// Anchoring playback to that span keeps day 0 at the start of the series
+// instead of comparing those dates to "today".
+function timelineCutoff(
+  posts: { timestamp: string }[],
+  currentDay: number,
+  maxDay: number,
+): number {
+  const times = posts
+    .map((post) => new Date(post.timestamp).getTime())
+    .filter((time) => !Number.isNaN(time));
+  if (times.length === 0) return Date.now();
+  const start = Math.min(...times);
+  const end = Math.max(...times);
+  if (maxDay <= 0 || currentDay >= maxDay) return end;
+  return start + ((end - start) * currentDay) / maxDay;
 }

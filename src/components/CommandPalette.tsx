@@ -21,7 +21,7 @@ import {
   FileText,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import { useToast } from "./Toast";
@@ -199,7 +199,7 @@ export function CommandPalette() {
 
     const searchTickers = async () => {
       setLoadingTickers(true);
-      const { data } = await supabase
+      const { data } = await db
         .from("tickers")
         .select("id, symbol, company_name")
         .or(`symbol.ilike.%${query}%,company_name.ilike.%${query}%`)

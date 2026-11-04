@@ -4,7 +4,7 @@
  */
 
 import { Brain, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { type AgentAnalysis } from "../lib/ai-agents";
+import { type AgentAnalysis } from "../lib/ai-agent-reads";
 
 interface AIAgentSummaryProps {
   analyses: AgentAnalysis[];

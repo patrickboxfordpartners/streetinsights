@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../integrations/supabase/client'
+import { db } from '../../db/browser'
 import { Layers } from 'lucide-react'
 
 interface SectorData {
@@ -21,7 +21,7 @@ export function SectorHeatMap() {
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-    const { data: tickers } = await supabase
+    const { data: tickers } = await db
       .from('tickers')
       .select('id, sector')
       .eq('is_active', true)
@@ -37,14 +37,14 @@ export function SectorHeatMap() {
       sectorMap[t.sector].tickerCount++
     }
 
-    const allTickerIds = tickers.map(t => t.id)
-    const { data: predictions } = await supabase
+    const allTickerIds = tickers.map((t) => t.id)
+    const { data: predictions } = await db
       .from('predictions')
       .select('ticker_id, sentiment')
       .in('ticker_id', allTickerIds)
       .gte('prediction_date', sevenDaysAgo.toISOString())
 
-    const { data: mentions } = await supabase
+    const { data: mentions } = await db
       .from('mentions')
       .select('ticker_id')
       .in('ticker_id', allTickerIds)

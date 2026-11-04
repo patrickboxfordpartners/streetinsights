@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { isUSMarketOpen } from "../../lib/market-calendar.js";
 
 const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
@@ -126,7 +126,7 @@ export const enrichMarketData = inngest.createFunction(
   async ({ step }) => {
     // Get active tickers that need enrichment
     const tickers = await step.run("fetch-active-tickers", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tickers")
         .select("id, symbol, market_cap")
         .eq("is_active", true)
@@ -147,7 +147,7 @@ export const enrichMarketData = inngest.createFunction(
       return { skipped: "market closed" };
     }
 
-    const symbols = tickers.map(t => t.symbol);
+    const symbols = tickers.map((t) => t.symbol);
 
     // Fetch market data for each ticker (respecting rate limits)
     const marketData: Record<string, MarketData> = {};
@@ -187,7 +187,7 @@ export const enrichMarketData = inngest.createFunction(
         if (!market && news.length === 0) continue;
 
         // Get recent mention count
-        const { count: recentMentions } = await supabase
+        const { count: recentMentions } = await db
           .from("mentions")
           .select("*", { count: "exact", head: true })
           .eq("ticker_id", ticker.id)
@@ -226,7 +226,7 @@ export const enrichMarketData = inngest.createFunction(
 
         // Store enriched data
         if (market) {
-          await supabase
+          await db
             .from("tickers")
             .update({
               market_cap: market.market_cap,
@@ -286,7 +286,7 @@ export const enrichMarketData = inngest.createFunction(
           const earningsDate = events[0].date;
 
           // Tag recent unvalidated predictions for this ticker
-          const { error } = await supabase
+          const { error } = await db
             .from("predictions")
             .update({ earnings_window: true, earnings_date: earningsDate })
             .eq("ticker_id", ticker.id)

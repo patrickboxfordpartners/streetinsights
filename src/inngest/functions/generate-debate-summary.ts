@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
 
@@ -13,7 +13,7 @@ export const generateDebateSummary = inngest.createFunction(
 
     // Check for new debates that haven't been turned into content yet
     const existingIds = await step.run("fetch-existing-drafts", async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("content_drafts")
         .select("metadata")
         .eq("source", "roundtaible");
@@ -26,10 +26,10 @@ export const generateDebateSummary = inngest.createFunction(
         .filter(Boolean) as string[];
     });
 
-    // Query debates table (same Supabase instance as content_drafts)
+    // Query debates. The table is empty until RoundtAIble rows are imported.
     const debateData = await step.run("check-for-debates", async () => {
       const since = new Date(Date.now() - 86400000).toISOString();
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("debates")
         .select("*")
         .gte("created_at", since)
@@ -85,7 +85,7 @@ export const generateDebateSummary = inngest.createFunction(
     });
 
     const saved = await step.run("save-draft", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("content_drafts")
         .insert({
           source: "roundtaible",
@@ -97,7 +97,7 @@ export const generateDebateSummary = inngest.createFunction(
         .select("id")
         .single();
 
-      if (error) throw error;
+      if (error || !data) throw error || new Error("Failed to save debate draft");
       return data;
     });
 

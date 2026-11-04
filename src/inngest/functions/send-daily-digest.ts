@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { sendEmail, sendWebhook } from "../../lib/email.js";
 
 export const sendDailyDigest = inngest.createFunction(
@@ -14,7 +14,7 @@ export const sendDailyDigest = inngest.createFunction(
 
     // Get alert preferences for users who have daily digest enabled
     const alertPrefs = await step.run("fetch-alert-preferences", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("alert_preferences")
         .select("*")
         .eq("daily_digest_enabled", true);
@@ -30,7 +30,7 @@ export const sendDailyDigest = inngest.createFunction(
     // Fetch yesterday's activity summary
     const digestData = await step.run("fetch-digest-data", async () => {
       // Get spikes detected yesterday
-      const { data: spikes } = await supabase
+      const { data: spikes } = await db
         .from("mention_frequency")
         .select("*, tickers(symbol, company_name)")
         .eq("date", yesterday)
@@ -39,7 +39,7 @@ export const sendDailyDigest = inngest.createFunction(
         .limit(10);
 
       // Get high-confidence predictions from yesterday
-      const { data: predictions } = await supabase
+      const { data: predictions } = await db
         .from("predictions")
         .select(`
           *,
@@ -53,7 +53,7 @@ export const sendDailyDigest = inngest.createFunction(
         .limit(10);
 
       // Get top active sources yesterday
-      const { data: topSources } = await supabase
+      const { data: topSources } = await db
         .from("mentions")
         .select("source_id, sources(name, platform)")
         .gte("mentioned_at", `${yesterday}T00:00:00Z`)
@@ -62,15 +62,16 @@ export const sendDailyDigest = inngest.createFunction(
 
       // Count mentions per source
       const sourceCounts = new Map<string, { name: string; platform: string; count: number }>();
-      topSources?.forEach((m: any) => {
-        if (m.source_id && m.sources) {
+      topSources?.forEach((m) => {
+        const source = (m as { source_id?: string | null; sources?: { name?: string; platform?: string } | null }).sources;
+        if (m.source_id && source) {
           const existing = sourceCounts.get(m.source_id);
           if (existing) {
             existing.count++;
           } else {
             sourceCounts.set(m.source_id, {
-              name: m.sources.name,
-              platform: m.sources.platform,
+              name: source.name || "Unknown",
+              platform: source.platform || "",
               count: 1,
             });
           }
@@ -101,8 +102,8 @@ export const sendDailyDigest = inngest.createFunction(
         // Spikes section
         if (digestData.spikes.length > 0) {
           message += `🚨 TOP SPIKES (${digestData.spikes.length})\n`;
-          digestData.spikes.slice(0, 5).forEach((s: any) => {
-            const ticker = s.tickers as any;
+          digestData.spikes.slice(0, 5).forEach((s) => {
+            const ticker = (s as { tickers?: { symbol?: string } | null }).tickers;
             message += `  • ${ticker?.symbol}: ${s.mention_count} mentions (avg: ${s.unique_sources} sources)\n`;
           });
           message += "\n";
@@ -113,9 +114,9 @@ export const sendDailyDigest = inngest.createFunction(
         // Predictions section
         if (digestData.predictions.length > 0) {
           message += `🎯 HIGH-CONFIDENCE PREDICTIONS (${digestData.predictions.length})\n`;
-          digestData.predictions.slice(0, 5).forEach((p: any) => {
-            const ticker = p.tickers as any;
-            const source = p.sources as any;
+          digestData.predictions.slice(0, 5).forEach((p) => {
+            const ticker = (p as { tickers?: { symbol?: string } | null }).tickers;
+            const source = (p as { sources?: { name?: string } | null }).sources;
             const direction = p.sentiment === "bullish" ? "📈" : p.sentiment === "bearish" ? "📉" : "➡️";
             const target = p.price_target ? ` → $${p.price_target}` : "";
             message += `  ${direction} ${ticker?.symbol}${target} - ${source?.name}\n`;
@@ -172,7 +173,7 @@ export const sendDailyDigest = inngest.createFunction(
         }
 
         // Log the digest
-        const { error: logError } = await supabase.from("alert_log").insert({
+        const { error: logError } = await db.from("alert_log").insert({
           alert_type: "digest",
           user_id: pref.user_id,
           ticker_symbol: null,

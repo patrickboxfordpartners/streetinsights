@@ -28,7 +28,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://analytics.boxfordpartners.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://analytics.boxfordpartners.com https://*.supabase.co; frame-src 'none'; object-src 'none'; base-uri 'self'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://analytics.boxfordpartners.com https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://img.clerk.com; connect-src 'self' https://analytics.boxfordpartners.com https://streetinsights-worker.fly.dev https://*.clerk.accounts.dev https://*.clerk.com https://api.clerk.com; frame-src https://challenges.cloudflare.com https://*.clerk.accounts.dev; object-src 'none'; base-uri 'self'"
         }
       ]
     }

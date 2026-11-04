@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import type { Request, Response } from "express";
-import { supabase } from "../integrations/supabase/client.js";
+import { db } from "../db/server.js";
 
 function createServer(): McpServer {
   const server = new McpServer({
@@ -22,7 +22,7 @@ function createServer(): McpServer {
       }),
     },
     async ({ active_only = true }) => {
-      let query = supabase.from("tickers").select("symbol, company_name, sector, industry, market_cap, avg_daily_mentions, mention_spike_threshold, is_active").order("symbol");
+      let query = db.from("tickers").select("symbol, company_name, sector, industry, market_cap, avg_daily_mentions, mention_spike_threshold, is_active").order("symbol");
       if (active_only) query = query.eq("is_active", true);
       const { data, error } = await query;
       if (error) return { content: [{ type: "text", text: `Error: ${error.message}` }] };
@@ -45,10 +45,10 @@ function createServer(): McpServer {
       }),
     },
     async ({ symbol, limit = 20, predictions_only = false, platform }) => {
-      const { data: ticker } = await supabase.from("tickers").select("id").eq("symbol", symbol.toUpperCase()).single();
+      const { data: ticker } = await db.from("tickers").select("id").eq("symbol", symbol.toUpperCase()).single();
       if (!ticker) return { content: [{ type: "text", text: `Ticker ${symbol} not found` }] };
 
-      let query = supabase.from("mentions")
+      let query = db.from("mentions")
         .select("content, url, platform, mentioned_at, engagement_score, is_prediction")
         .eq("ticker_id", ticker.id)
         .order("mentioned_at", { ascending: false })
@@ -74,13 +74,13 @@ function createServer(): McpServer {
       }),
     },
     async ({ symbol, days = 14 }) => {
-      const { data: ticker } = await supabase.from("tickers").select("id").eq("symbol", symbol.toUpperCase()).single();
+      const { data: ticker } = await db.from("tickers").select("id").eq("symbol", symbol.toUpperCase()).single();
       if (!ticker) return { content: [{ type: "text", text: `Ticker ${symbol} not found` }] };
 
       const since = new Date();
       since.setDate(since.getDate() - days);
 
-      const { data, error } = await supabase.from("mention_frequency")
+      const { data, error } = await db.from("mention_frequency")
         .select("date, mention_count, unique_sources, avg_sentiment_score, spike_detected")
         .eq("ticker_id", ticker.id)
         .gte("date", since.toISOString().split("T")[0])
@@ -106,10 +106,10 @@ function createServer(): McpServer {
       }),
     },
     async ({ symbol, sentiment, confidence, limit = 10 }) => {
-      const { data: ticker } = await supabase.from("tickers").select("id").eq("symbol", symbol.toUpperCase()).single();
+      const { data: ticker } = await db.from("tickers").select("id").eq("symbol", symbol.toUpperCase()).single();
       if (!ticker) return { content: [{ type: "text", text: `Ticker ${symbol} not found` }] };
 
-      let query = supabase.from("predictions")
+      let query = db.from("predictions")
         .select("sentiment, price_target, timeframe_days, confidence_level, reasoning, data_sources_cited, catalysts, reasoning_quality_score, prediction_date, target_date")
         .eq("ticker_id", ticker.id)
         .order("prediction_date", { ascending: false })
@@ -135,18 +135,18 @@ function createServer(): McpServer {
       }),
     },
     async ({ symbol, limit = 20 }) => {
-      const { data: ticker } = await supabase.from("tickers").select("id").eq("symbol", symbol.toUpperCase()).single();
+      const { data: ticker } = await db.from("tickers").select("id").eq("symbol", symbol.toUpperCase()).single();
       if (!ticker) return { content: [{ type: "text", text: `Ticker ${symbol} not found` }] };
 
-      const { data: predictions } = await supabase.from("predictions")
+      const { data: predictions } = await db.from("predictions")
         .select("id, sentiment, price_target, prediction_date")
         .eq("ticker_id", ticker.id)
         .limit(limit);
 
       if (!predictions?.length) return { content: [{ type: "text", text: "No predictions found" }] };
 
-      const ids = predictions.map((p) => p.id);
-      const { data, error } = await supabase.from("validations")
+      const ids = predictions.map((p: any) => p.id);
+      const { data, error } = await db.from("validations")
         .select("prediction_id, price_at_prediction, price_at_validation, price_change_percent, was_correct, accuracy_score, days_to_outcome, validation_date")
         .in("prediction_id", ids)
         .order("validation_date", { ascending: false });
@@ -170,7 +170,7 @@ function createServer(): McpServer {
       }),
     },
     async ({ platform, min_accuracy, limit = 20 }) => {
-      let query = supabase.from("sources")
+      let query = db.from("sources")
         .select("name, platform, username, source_type, credibility_score, accuracy_rate, total_predictions, correct_predictions, reasoning_quality, url, verified")
         .eq("is_active", true)
         .order("credibility_score", { ascending: false })
@@ -203,7 +203,7 @@ function createServer(): McpServer {
       const until = new Date();
       until.setDate(until.getDate() + days_ahead);
 
-      let query = supabase.from("government_events")
+      let query = db.from("government_events")
         .select("title, description, event_type, source_category, event_date, participants, related_topics, source_url, status")
         .gte("event_date", now)
         .lte("event_date", until.toISOString())
@@ -228,7 +228,7 @@ function createServer(): McpServer {
       }),
     },
     async ({ event_id }) => {
-      const { data, error } = await supabase.from("event_impact_scores")
+      const { data, error } = await db.from("event_impact_scores")
         .select("impact_magnitude, impact_direction, confidence, timeframe, affected_sectors, affected_tickers, reasoning, key_factors, historical_precedent, model_name")
         .eq("event_id", event_id)
         .eq("is_latest", true)
@@ -252,7 +252,7 @@ function createServer(): McpServer {
       }),
     },
     async ({ scan_type, limit = 10 }) => {
-      let query = supabase.from("scan_log")
+      let query = db.from("scan_log")
         .select("scan_type, status, mentions_found, error_message, started_at, completed_at")
         .order("started_at", { ascending: false })
         .limit(limit);

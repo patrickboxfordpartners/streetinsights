@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { llmClient } from "../../integrations/llm/client.js";
 
 const SYSTEM_PROMPT = `You are a senior macroeconomic analyst specializing in government policy impact on financial markets. You analyze upcoming government events and predict their market impact with precision.
@@ -60,7 +60,7 @@ export const scoreEventImpact = inngest.createFunction(
     const eventId = (event.data as { event_id: string }).event_id;
 
     const govEvent = await step.run("fetch-event", async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("government_events")
         .select("*")
         .eq("id", eventId)
@@ -70,7 +70,7 @@ export const scoreEventImpact = inngest.createFunction(
     });
 
     const historicalContext = await step.run("fetch-historical-context", async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("government_events")
         .select("title, event_date, event_impact_scores(impact_magnitude, impact_direction, reasoning)")
         .eq("event_type", govEvent.event_type)
@@ -80,8 +80,8 @@ export const scoreEventImpact = inngest.createFunction(
 
       if (!data || data.length === 0) return "";
 
-      const examples = data.map((e: any) => {
-        const score = e.event_impact_scores?.[0];
+      const examples = data.map((e) => {
+        const score = (e as { event_impact_scores?: Array<{ impact_magnitude?: number; impact_direction?: string }> }).event_impact_scores?.[0];
         return `- ${e.title} (${e.event_date?.split("T")[0]}): magnitude ${score?.impact_magnitude || "?"}, ${score?.impact_direction || "?"}`;
       });
 
@@ -121,12 +121,12 @@ export const scoreEventImpact = inngest.createFunction(
 
     await step.run("store-score", async () => {
       // Mark previous scores as not latest
-      await supabase
+      await db
         .from("event_impact_scores")
         .update({ is_latest: false })
         .eq("event_id", eventId);
 
-      const { error } = await supabase.from("event_impact_scores").insert({
+      const { error } = await db.from("event_impact_scores").insert({
         event_id: eventId,
         impact_magnitude: score.impact_magnitude,
         impact_direction: score.impact_direction,

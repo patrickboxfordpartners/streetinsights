@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../integrations/supabase/client";
+import { db } from "../db/browser";
 import { TrendingUp, TrendingDown, Minus, Target, Activity, AlertCircle } from "lucide-react";
 
 interface MLPrediction {
@@ -40,7 +40,7 @@ export default function MLSignals() {
       const today = new Date().toISOString().split("T")[0];
 
       // Fetch today's predictions
-      const { data: preds24h } = await supabase
+      const { data: preds24h } = await db
         .from("model_predictions")
         .select("*, tickers(symbol, company_name)")
         .eq("model_type", "price_movement_24h")
@@ -48,7 +48,7 @@ export default function MLSignals() {
         .order("confidence_score", { ascending: false })
         .limit(20);
 
-      const { data: preds7d } = await supabase
+      const { data: preds7d } = await db
         .from("model_predictions")
         .select("*, tickers(symbol, company_name)")
         .eq("model_type", "price_movement_7d")
@@ -57,7 +57,7 @@ export default function MLSignals() {
         .limit(20);
 
       // Fetch model metrics
-      const { data: modelMetrics } = await supabase
+      const { data: modelMetrics } = await db
         .from("model_configs")
         .select("model_type, model_version, accuracy, precision, recall, f1_score, trained_at")
         .eq("is_active", true)

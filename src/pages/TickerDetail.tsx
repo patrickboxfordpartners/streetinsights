@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../integrations/supabase/client'
+import { db } from '../db/browser'
 import {
   ArrowLeft,
   TrendingUp,
@@ -82,7 +82,7 @@ export function TickerDetail() {
 
   async function fetchAll(sym: string) {
     // Fetch ticker
-    const { data: tickerData } = await supabase
+    const { data: tickerData } = await db
       .from('tickers')
       .select('id, symbol, company_name, sector, avg_daily_mentions, mention_spike_threshold')
       .eq('symbol', sym)
@@ -105,19 +105,19 @@ export function TickerDetail() {
       { data: predData },
       { data: mentionData },
     ] = await Promise.all([
-      supabase
+      db
         .from('mention_frequency')
         .select('date, mention_count, avg_sentiment_score, spike_detected')
         .eq('ticker_id', tickerData.id)
         .gte('date', startDate.toISOString().split('T')[0])
         .order('date', { ascending: true }),
-      supabase
+      db
         .from('predictions')
         .select('id, sentiment, price_target, prediction_date, sources (name), validations (was_correct)')
         .eq('ticker_id', tickerData.id)
         .order('prediction_date', { ascending: false })
         .limit(20),
-      supabase
+      db
         .from('mentions')
         .select('id, content, platform, mentioned_at, engagement_score, sources (name)')
         .eq('ticker_id', tickerData.id)
@@ -130,7 +130,7 @@ export function TickerDetail() {
     // Heatmap always shows last 26 weeks regardless of date range
     const heatmapStart = new Date()
     heatmapStart.setDate(heatmapStart.getDate() - 182)
-    const { data: heatData } = await supabase
+    const { data: heatData } = await db
       .from('mention_frequency')
       .select('date, mention_count, avg_sentiment_score, spike_detected')
       .eq('ticker_id', tickerData.id)

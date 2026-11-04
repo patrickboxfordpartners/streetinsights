@@ -1,5 +1,5 @@
 import { inngest } from "../client.js";
-import { supabase } from "../../integrations/supabase/client.js";
+import { db } from "../../db/server.js";
 import { validateReasoning } from "../../lib/reasoning-validator.js";
 
 const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
@@ -27,13 +27,13 @@ export const validatePredictions = inngest.createFunction(
 
     const predictionsToValidate = await step.run("fetch-predictions-due", async () => {
       const [withTarget, withoutTarget] = await Promise.all([
-        supabase
+        db
           .from("predictions")
           .select("id, ticker_id, source_id, sentiment, price_target, timeframe_days, prediction_date, target_date")
           .lte("target_date", today.toISOString())
           .order("target_date", { ascending: true })
           .limit(80),
-        supabase
+        db
           .from("predictions")
           .select("id, ticker_id, source_id, sentiment, price_target, timeframe_days, prediction_date, target_date")
           .is("target_date", null)
@@ -48,11 +48,11 @@ export const validatePredictions = inngest.createFunction(
       if (error) throw error;
 
       if (!data || data.length === 0) return [];
-      const tickerIds = [...new Set(data.map(p => p.ticker_id))];
-      const { data: tickers } = await supabase.from("tickers").select("id, symbol").in("id", tickerIds);
-      const tickerMap = new Map((tickers || []).map(t => [t.id, t.symbol]));
+      const tickerIds = [...new Set(data.map((p) => p.ticker_id))];
+      const { data: tickers } = await db.from("tickers").select("id, symbol").in("id", tickerIds);
+      const tickerMap = new Map<string, string>((tickers || []).map((t) => [t.id, t.symbol]));
 
-      return data.map(p => ({
+      return data.map((p) => ({
         ...p,
         ticker_symbol: tickerMap.get(p.ticker_id) || "UNKNOWN",
       }));
@@ -203,7 +203,7 @@ export const validatePredictions = inngest.createFunction(
             (1000 * 60 * 60 * 24)
         );
 
-        const { error } = await supabase.from("validations").insert({
+        const { error } = await db.from("validations").insert({
           prediction_id: prediction.id,
           price_at_prediction: priceAtPrediction,
           price_at_validation: currentPrice,
@@ -234,7 +234,7 @@ export const validatePredictions = inngest.createFunction(
 
       // Fetch predictions that were just validated, with their reasoning fields
       const predictionIds = predictionsToValidate.map(p => p.id);
-      const { data: predictionDetails } = await supabase
+      const { data: predictionDetails } = await db
         .from("predictions")
         .select("id, ticker_id, sentiment, reasoning, data_sources_cited, catalysts")
         .in("id", predictionIds);
@@ -244,23 +244,23 @@ export const validatePredictions = inngest.createFunction(
       }
 
       // Build a map of prediction_id → was_correct from the validations we just created
-      const { data: freshValidations } = await supabase
+      const { data: freshValidations } = await db
         .from("validations")
         .select("prediction_id, was_correct")
         .in("prediction_id", predictionIds)
         .order("validation_date", { ascending: false });
 
-      const outcomeMap = new Map(
-        (freshValidations || []).map(v => [v.prediction_id, v.was_correct])
+      const outcomeMap = new Map<string, boolean>(
+        (freshValidations || []).map((v) => [v.prediction_id, v.was_correct])
       );
 
       // Build ticker symbol map
-      const tickerIds = [...new Set(predictionDetails.map(p => p.ticker_id))];
-      const { data: tickers } = await supabase
+      const tickerIds = [...new Set(predictionDetails.map((p) => p.ticker_id))];
+      const { data: tickers } = await db
         .from("tickers")
         .select("id, symbol")
         .in("id", tickerIds);
-      const tickerMap = new Map((tickers || []).map(t => [t.id, t.symbol]));
+      const tickerMap = new Map<string, string>((tickers || []).map((t) => [t.id, t.symbol]));
 
       let count = 0;
 
@@ -281,7 +281,7 @@ export const validatePredictions = inngest.createFunction(
             was_correct,
           });
 
-          await supabase
+          await db
             .from("predictions")
             .update({
               reasoning_quality_score: result.reasoning_quality_score,

@@ -1,10 +1,8 @@
 /**
- * Secure Multi-LLM Router (Client-Side)
- * Proxies all LLM requests through Supabase Edge Function
- * API keys are never exposed to the client
+ * Server-side LLM router. API keys stay on the worker.
  */
 
-import { supabase } from '../integrations/supabase/client'
+import { llmClient } from "../integrations/llm/client.js";
 
 interface LLMRequest {
   systemPrompt: string
@@ -21,45 +19,31 @@ interface LLMResponse {
   latencyMs: number
 }
 
-/**
- * Route LLM request through secure server-side proxy.
- * Accepts an auth token (from Clerk) to authenticate with the edge function.
- */
 export async function routeLLMRequest(
   request: LLMRequest,
   authToken?: string | null
 ): Promise<LLMResponse> {
-  try {
-    if (!authToken) {
-      throw new Error('You must be logged in to use LLM features')
-    }
-
-    const { data, error } = await supabase.functions.invoke('llm-proxy', {
-      body: request,
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-      },
-    })
-
-    if (error) {
-      throw new Error(`LLM Proxy error: ${error.message}`)
-    }
-
-    if (!data || !data.content) {
-      throw new Error('Invalid response from LLM proxy')
-    }
-
-    return data as LLMResponse
-  } catch (error: any) {
-    console.error('[LLM Router] Error:', error)
-    throw error
-  }
+  void authToken;
+  const started = Date.now();
+  const result = await llmClient.chat({
+    messages: [
+      { role: "system", content: request.systemPrompt },
+      { role: "user", content: request.userPrompt },
+    ],
+    temperature: request.temperature,
+    maxTokens: request.maxTokens,
+  });
+  const provider = result.provider === "xai" || result.provider === "openai" || result.provider === "anthropic" || result.provider === "google"
+    ? result.provider
+    : "xai";
+  return {
+    content: result.content,
+    model: result.model,
+    provider,
+    latencyMs: Date.now() - started,
+  };
 }
 
-/**
- * Get list of available providers (client-side placeholder)
- * Actual provider availability is determined server-side
- */
 export function getAvailableProviders(): Array<{
   name: string
   model: string
