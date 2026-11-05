@@ -26,6 +26,7 @@ import { Breadcrumbs } from '../Breadcrumbs'
 import { CommandPalette } from '../CommandPalette'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../hooks/useTheme'
+import { useEnsureProfile } from '../../hooks/useEnsureProfile'
 import { GlobalSearch } from '../GlobalSearch'
 import logoIcon from '../../assets/logo-icon.png'
 
@@ -47,6 +48,7 @@ export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { signOut, session } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  useEnsureProfile()
 
   return (
     <div className="min-h-screen bg-background">
