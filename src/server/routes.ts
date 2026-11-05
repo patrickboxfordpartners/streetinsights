@@ -7,6 +7,7 @@ import { guardQuery } from "../db/guard.js";
 import type { QueryDescriptor } from "../db/types.js";
 import { llmClient } from "../integrations/llm/client.js";
 import { clerkUserId } from "./auth.js";
+import { ensureProfileAndEnroll } from "../lib/drip-enroll.js";
 
 export function mountStripeWebhook(app: Express) {
   app.post("/api/billing/webhook", express.raw({ type: "application/json" }), stripeWebhook);
@@ -15,9 +16,44 @@ export function mountStripeWebhook(app: Express) {
 export function mountApi(app: Express) {
   app.post("/api/db", dbQuery);
   app.post("/api/billing/checkout", startCheckout);
+  app.post("/api/profile/ensure", ensureProfile);
   app.post("/api/llm", llmProxy);
   app.get("/api/fred", fredProxy);
   app.post("/api/fred", fredProxy);
+}
+
+/**
+ * Called by the frontend on first dashboard load after signup. Creates the
+ * user's profile row if missing and enrolls them in the drip-engine
+ * onboarding sequence (welcome email within the hour, day-3, day-7).
+ */
+async function ensureProfile(req: Request, res: Response) {
+  const userId = await clerkUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const body = (req.body ?? {}) as { email?: string; name?: string };
+  const email = typeof body.email === "string" ? body.email : "";
+  if (!email) {
+    res.status(400).json({ error: "email is required" });
+    return;
+  }
+
+  // Never blocks or fails the request: a drip outage must not break signup.
+  const outcome = await ensureProfileAndEnroll(
+    {
+      from: (table: string) => ({
+        upsert: async (row: Record<string, unknown>) => {
+          const result = await db.from(table).upsert(row as never);
+          return { error: result.error };
+        },
+      }),
+    },
+    { id: userId, email, name: typeof body.name === "string" ? body.name : undefined }
+  );
+
+  res.json({ ok: true, outcome });
 }
 
 async function dbQuery(req: Request, res: Response) {
