@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:3001";
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || "";
 
 export function useBilling() {
   const [loading, setLoading] = useState(false);

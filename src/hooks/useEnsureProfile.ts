@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useUser, useAuth as useClerkAuth } from "@clerk/clerk-react";
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:3001";
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || "";
 
 /**
  * Fire /api/profile/ensure once per signed-in session: creates the user's

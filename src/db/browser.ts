@@ -1,7 +1,7 @@
 import { createClient, type Executor } from "./chain";
 import type { QueryDescriptor, QueryResult } from "./types";
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:3001";
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || "";
 
 let tokenProvider: (() => Promise<string | null>) | null = null;
 

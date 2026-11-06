@@ -23,7 +23,7 @@ export interface MacroOverview {
   lastUpdated: string;
 }
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "http://localhost:3001";
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || "";
 
 // Common FRED series IDs
 const FRED_SERIES = {

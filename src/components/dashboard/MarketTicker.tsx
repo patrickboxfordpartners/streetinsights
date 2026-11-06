@@ -9,7 +9,7 @@ interface Quote {
   marketState?: string
 }
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'https://streetinsights-worker.fly.dev'
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || ''
 const REFRESH_INTERVAL = 60_000
 
 export function MarketTicker() {

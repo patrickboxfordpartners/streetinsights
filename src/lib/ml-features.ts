@@ -1,6 +1,11 @@
 import { db } from "../db/server.js";
 
-const WORKER_URL = process.env.VITE_WORKER_URL || "http://localhost:3001";
+// Server-side callers (Inngest functions) self-call the worker's technicals
+// endpoint; WORKER_HOST wins when set, else the Vercel deployment URL.
+const WORKER_URL =
+  process.env.WORKER_HOST ||
+  process.env.VITE_WORKER_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3001");
 
 export interface FeatureVector {
   // Mention-based features

@@ -4,10 +4,10 @@
  * endpoints, which use the Node.js yahoo-finance2 package server-side.
  */
 
+// Same-origin worker by default; VITE_WORKER_URL overrides for local dev
+// (e.g. http://localhost:3001 while vite serves the UI).
 const WORKER_URL =
-  typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_WORKER_URL
-    ? (import.meta as any).env.VITE_WORKER_URL
-    : "";
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_WORKER_URL) || "";
 
 export interface StockQuote {
   symbol: string;

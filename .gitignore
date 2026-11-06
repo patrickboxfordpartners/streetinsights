@@ -38,3 +38,4 @@ dist-ssr
 .claude/
 *.bak
 supabase/.temp/
+.env*

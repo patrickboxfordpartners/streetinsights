@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { type Express } from "express";
 import cors from "cors";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
@@ -17,6 +17,8 @@ import { mountApi, mountStripeWebhook } from "./src/server/routes.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const AVAILABLE_DOCS = ["overview", "mcp", "query"] as const;
 type DocSlug = (typeof AVAILABLE_DOCS)[number];
+// Bundlers and serverless runtimes resolve this at build time; the fallback
+// covers `tsx worker.ts` where import.meta.url already points here.
 const DOCS_DIR = join(__dirname, "docs");
 const docCache = new Map<string, string>();
 
@@ -177,17 +179,19 @@ function rememberTechnicals(symbol: string, body: unknown) {
   }
 }
 
-const app = express();
 const port = process.env.PORT || 3001;
 
-// Stripe signature verification needs the raw body, so this route is mounted
-// before the JSON parser.
-mountStripeWebhook(app);
-app.use(cors());
-app.use(express.json({ limit: "4mb" }));
-mountApi(app);
+function buildApp(): Express {
+  const app = express();
 
-// Inngest endpoint — serveHost tells Inngest Cloud how to reach this worker
+  // Stripe signature verification needs the raw body, so this route is mounted
+  // before the JSON parser.
+  mountStripeWebhook(app);
+  app.use(cors());
+  app.use(express.json({ limit: "4mb" }));
+  mountApi(app);
+
+  // Inngest endpoint — serveHost tells Inngest Cloud how to reach this worker
 app.use(
   "/api/inngest",
   serve({
@@ -511,11 +515,22 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "market-signals-worker" });
 });
 
-app.listen(port, () => {
-  console.log(`🔄 Market Signals Worker running on port ${port}`);
-  console.log(`📊 Inngest endpoint: http://localhost:${port}/api/inngest`);
-  console.log(`\nFunctions registered:`);
-  Object.values(functions).forEach(fn => {
-    console.log(`  - ${fn.name}`);
+  return app;
+}
+
+const app = buildApp();
+
+export default app;
+
+// Local entrypoint (`npm run worker` via tsx). On Vercel, api/worker.ts
+// imports the built app instead and never runs this file's top-level listen.
+if (process.env.WORKER_STANDALONE !== "0") {
+  app.listen(port, () => {
+    console.log(`🔄 Market Signals Worker running on port ${port}`);
+    console.log(`📊 Inngest endpoint: http://localhost:${port}/api/inngest`);
+    console.log(`\nFunctions registered:`);
+    Object.values(functions).forEach(fn => {
+      console.log(`  - ${fn.name}`);
+    });
   });
-});
+}
